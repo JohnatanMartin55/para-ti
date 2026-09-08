@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0b1030">
+<title>Para ti 💛</title>
+
+<!-- ============================================================
+     TARJETA DEL ENLACE
+     Esto es lo que se ve al compartir el link: título, texto y
+     miniatura. Cambia TU-USUARIO por tu usuario de GitHub en las
+     dos líneas marcadas y nada más.
+     ============================================================ -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Para ti 💛">
+<meta property="og:description" content="Ábrelo cuando tengas un minuto.">
+<meta property="og:url" content="https://TU-USUARIO.github.io/para-ti/">
+<meta property="og:image" content="https://TU-USUARIO.github.io/para-ti/vista-previa.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="description" content="Ábrelo cuando tengas un minuto.">
+
+<!-- Icono de la pestaña: un corazón, sin archivo aparte -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='27' font-size='27'%3E%F0%9F%92%9B%3C/text%3E%3C/svg%3E">
+
+<!-- ============================================================
+     TIPOGRAFÍA · Google Fonts
+     Quicksand → lectura general · Caveat → revelación final
+     ============================================================ -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Quicksand:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   01 · RESET Y BASES
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;                 /* escena fija: sin scroll ni desbordes */
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: 'Quicksand', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: #0b1030;
+  color: var(--tinta);
+  -webkit-font-smoothing: antialiased;
+}
+
+img { display: block; max-width: 100%; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 6px;
+  border-radius: 999px;
+}
+
+/* ============================================================
+   02 · SISTEMA DE TOKENS
+   ============================================================ */
+:root {
+  /* Noche */
+  --noche-cenit:  #060a22;
+  --noche-media:  #101a45;
+  --noche-baja:   #26356f;
+  --luna:         #f3f1e3;
+
+  /* Día */
+  --alba:         #ffd9a3;
+  --dia-baja:     #ffeccd;
+  --dia-media:    #a5d9f2;
+  --dia-alta:     #4fa8e0;
+  --sol:          #fff3c0;
+
+  /* Tierra y campo */
+  --colina-lejos: #7fae5e;
+  --colina-cerca: #5d9247;
+  --surco:        #4a7c3a;
+
+  /* Girasol (paleta tomada de la ilustración de referencia) */
+  --petalo:       #ffc81e;
+  --petalo-hondo: #f0a81a;
+  --corazon:      #3b2a18;
+  --trama:        #6d4c28;
+  --hoja:         #4a8a3a;
+  --contorno:     #241c14;
+
+  /* Texto y utilidades */
+  --tinta:        #cdd6f7;
+  --tinta-dia:    #2b3a52;
+  --vidrio-borde: rgba(255, 255, 255, .38);
+  --foco:         #ffd166;
+
+  /* Física del movimiento */
+  --entrada:      cubic-bezier(.16, 1, .30, 1);
+  --rebote:       cubic-bezier(.34, 1.56, .64, 1);
+
+  /* Duraciones */
+  --t-cielo:      2600ms;
+
+  /* Activo externo: sustituir la ruta para cambiar el ramo */
+  --img-ramo:     url("girasoles.png");
+}
+
+/* ============================================================
+   03 · ESCENARIO · capas apiladas (cielo → astros → paisaje → texto)
+   ============================================================ */
+.escena {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100vh;
+  isolation: isolate;               /* confina los mix-blend-mode internos */
+}
+
+.capa {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.cielo--noche {
+  z-index: 0;
+  background:
+    radial-gradient(130% 85% at 50% 108%, var(--noche-baja) 0%, transparent 62%),
+    linear-gradient(180deg, var(--noche-cenit) 0%, #0b1030 46%, var(--noche-media) 100%);
+  transition: opacity var(--t-cielo) var(--entrada);
+}
+
+.cielo--dia {
+  z-index: 1;
+  opacity: 0;
+  background:
+    radial-gradient(95% 62% at 22% 92%, var(--alba) 0%, transparent 62%),
+    linear-gradient(180deg, var(--dia-alta) 0%, var(--dia-media) 46%, var(--dia-baja) 100%);
+  transition: opacity var(--t-cielo) var(--entrada);
+}
+
+/* Estrellas estáticas: el modo noche no se mueve hasta la interacción */
+.estrellas {
+  z-index: 2;
+  background-image:
+    radial-gradient(1.6px 1.6px at 12% 16%, #fff, transparent),
+    radial-gradient(1.3px 1.3px at 27% 38%, #e6edff, transparent),
+    radial-gradient(1.8px 1.8px at 44% 11%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 61% 31%, #dde6ff, transparent),
+    radial-gradient(1.7px 1.7px at 77% 18%, #fff, transparent),
+    radial-gradient(1.3px 1.3px at 89% 42%, #eaf0ff, transparent),
+    radial-gradient(1.5px 1.5px at 33% 58%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 69% 54%, #d9e3ff, transparent),
+    radial-gradient(1.6px 1.6px at 7%  48%, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 53% 46%, #f0f4ff, transparent);
+  transition: opacity 1400ms var(--entrada);
+}
+
+.luna {
+  position: absolute;
+  z-index: 3;
+  top: 11%;
+  right: 15%;
+  width: clamp(54px, 8.5vw, 100px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 32%, #fffdf3 0%, var(--luna) 56%, #cec8b1 100%);
+  box-shadow: 0 0 60px 18px rgba(243, 241, 227, .2);
+  transform: translate3d(0, 0, 0);
+  transition: transform 2400ms var(--entrada), opacity 1600ms var(--entrada);
+}
+
+/* Sol: entra desde bajo el horizonte con sobreimpulso */
+.sol {
+  position: absolute;
+  z-index: 3;
+  bottom: 26%;
+  left: 15%;
+  width: clamp(90px, 15vw, 180px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #fffdf0 0%, var(--sol) 48%, #ffcd72 100%);
+  box-shadow: 0 0 90px 34px rgba(255, 210, 120, .45);
+  opacity: 0;
+  transform: translate3d(0, 48vh, 0) scale(.5);
+  transition: transform 2700ms var(--rebote), opacity 1800ms var(--entrada);
+  will-change: transform, opacity;
+}
+
+/* Nubes: sólo aparecen de día y derivan lentamente */
+.nube {
+  position: absolute;
+  z-index: 4;
+  height: clamp(24px, 3.6vw, 44px);
+  width: clamp(86px, 15vw, 200px);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .8);
+  opacity: 0;
+  transform: translate3d(0, -16px, 0);
+  transition: opacity 1600ms var(--entrada), transform 1600ms var(--entrada);
+}
+.nube::before, .nube::after {
+  content: ""; position: absolute; bottom: 34%; border-radius: 50%; background: inherit;
+}
+.nube::before { left: 18%; width: 46%; aspect-ratio: 1; }
+.nube::after  { right: 16%; width: 34%; aspect-ratio: 1; }
+.nube--a { top: 14%; left: -16%; }
+.nube--b { top: 25%; left: 48%; }
+
+/* ============================================================
+   03b · VIDA DE LA ESCENA
+   Estrellas que titilan y derivan, luciérnagas que revolotean
+   de noche, y mariposas que cruzan el campo de día.
+   Todo con ciclos largos y desfasados: nada late al mismo
+   tiempo, así el movimiento se lee como respiración y no
+   como parpadeo.
+   ============================================================ */
+
+/* --- Estrellas --- */
+.estrella {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  animation: vagar var(--deriva) ease-in-out var(--del) infinite alternate;
+}
+.estrella::after {
+  content: "";
+  display: block;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 7px 1.5px rgba(255, 255, 255, .5);
+  opacity: .7;
+  animation: titilar var(--dur) ease-in-out var(--del) infinite alternate;
+}
+
+/* Deriva casi imperceptible: unos pocos píxeles en decenas de segundos */
+@keyframes vagar {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(var(--dx), var(--dy), 0); }
+}
+@keyframes titilar {
+  from { opacity: .22; transform: scale(.82); }
+  to   { opacity: 1;   transform: scale(1.06); }
+}
+
+/* --- Luciérnagas --- */
+.nocturnos {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  transition: opacity 1800ms var(--entrada);
+}
+.luciernaga {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: #f2ffb0;
+  box-shadow: 0 0 12px 4px rgba(226, 255, 150, .45);
+  animation:
+    revolotear var(--dur) ease-in-out var(--del) infinite alternate,
+    latir var(--pulso) ease-in-out var(--del) infinite alternate;
+}
+/* Recorrido errático pero lento: el vuelo nunca repite el mismo tramo */
+@keyframes revolotear {
+  0%   { transform: translate3d(0, 0, 0); }
+  25%  { transform: translate3d(var(--a), var(--b), 0); }
+  50%  { transform: translate3d(var(--c), var(--d), 0); }
+  75%  { transform: translate3d(var(--e), var(--f), 0); }
+  100% { transform: translate3d(var(--g), var(--h), 0); }
+}
+@keyframes latir {
+  from { opacity: .15; }
+  to   { opacity: .95; }
+}
+
+/* --- Mariposas --- */
+.diurnos {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1600ms var(--entrada);
+}
+.mariposa {
+  position: absolute;
+  top: var(--y);
+  left: 0;
+  width: var(--w);
+  height: auto;
+  overflow: visible;
+  animation: cruzar var(--dur) linear var(--del) infinite;
+}
+.mariposa .ala {
+  transform-origin: 22px 16px;
+  animation: aletear var(--aleteo) ease-in-out infinite alternate;
+}
+/* Travesía completa del encuadre, con altibajos suaves */
+@keyframes cruzar {
+  0%   { transform: translate3d(-12vw, 0, 0) rotate(-5deg); }
+  25%  { transform: translate3d(20vw, -7vh, 0) rotate(4deg); }
+  50%  { transform: translate3d(50vw, 1vh, 0) rotate(-3deg); }
+  75%  { transform: translate3d(78vw, -6vh, 0) rotate(5deg); }
+  100% { transform: translate3d(112vw, 0, 0) rotate(-5deg); }
+}
+@keyframes aletear {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(.32); }
+}
+
+/* ============================================================
+   04 · PAISAJE · SVG del campo de girasoles
+   Ocupa el tercio inferior y escala con `slice` para cubrir
+   cualquier proporción sin deformarse.
+   ============================================================ */
+.paisaje {
+  position: absolute;
+  z-index: 5;
+  inset: auto 0 0 0;
+  width: 100%;
+  height: clamp(200px, 42vh, 460px);
+  pointer-events: none;
+  /* De noche el campo queda apagado; el amanecer le devuelve el color */
+  filter: brightness(.30) saturate(.35) blur(.2px);
+  transition: filter var(--t-cielo) var(--entrada);
+  will-change: filter;
+}
+
+.colina { transition: fill var(--t-cielo) var(--entrada); }
+
+/* Cada planta rota sobre la base de su tallo (heliotropismo) */
+.planta {
+  pointer-events: auto;
+  cursor: default;
+}
+.planta__cuerpo {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transform: rotate(-19deg) scale(.94);   /* de noche: cabizbajo */
+  transition: transform 1500ms var(--rebote);
+  will-change: transform;
+}
+
+/* Interacción menor: al pasar, tocar o enfocar, el girasol asiente */
+.planta:hover  .planta__cuerpo,
+.planta:focus  .planta__cuerpo,
+.planta:active .planta__cuerpo {
+  transform: rotate(calc(var(--giro, 0deg) + 7deg)) scale(1.03);
+  transition-duration: 520ms;
+}
+
+/* Cada girasol guarda un detalle. El texto vive dentro de un ancla
+   con la escala invertida, así todas las frases miden lo mismo
+   aunque las plantas estén a distintas profundidades. */
+.planta__globo {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 320ms var(--entrada), transform 460ms var(--rebote);
+  pointer-events: none;
+}
+
+.planta__frase {
+  font-family: 'Caveat', cursive;
+  font-size: 30px;
+  font-weight: 700;
+  fill: #22364f;
+  stroke: #fffdf6;                  /* halo: legible sobre cielo o campo */
+  stroke-width: 7;
+  paint-order: stroke fill;
+  stroke-linejoin: round;
+}
+
+/* Las frases sólo existen de día */
+.es-dia .planta:hover  .planta__globo,
+.es-dia .planta:focus  .planta__globo,
+.es-dia .planta:active .planta__globo {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================================
+   05 · RAMO · activo externo fusionado con el cielo
+   `mix-blend-mode: multiply` disuelve el fondo blanco del PNG
+   contra el degradado: de noche se oscurece solo, de día se aclara.
+   ============================================================ */
+.ramo {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  bottom: 0;
+  width: clamp(220px, 34vw, 430px);
+  aspect-ratio: 464 / 358;
+  background: var(--img-ramo) center bottom / contain no-repeat;
+  opacity: 0;
+  transform: translate3d(-50%, 90px, 0);
+  transition: transform 1500ms var(--rebote), opacity 1100ms var(--entrada);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* Utilidad de fusión reutilizable para cualquier recurso con fondo blanco */
+.fusion-multiply { mix-blend-mode: multiply; }
+
+/* ============================================================
+   06 · DISPARADOR (estado inicial)
+   ============================================================ */
+.disparador {
+  position: relative;
+  z-index: 20;
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  width: min(560px, 88vw);
+  padding: clamp(1.6rem, 5vw, 2.4rem) clamp(1.6rem, 6vw, 2.8rem);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, .07);
+  border: 1px solid rgba(255, 255, 255, .16);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  transition: opacity 700ms ease, transform 700ms var(--entrada);
+}
+
+/* Frase nocturna: mayúsculas espaciadas, el contrapunto sobrio
+   de la caligrafía que llega con el día */
+.disparador__frase {
+  font-size: clamp(1rem, 2.5vw, 1.24rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .045em;
+  line-height: 1.6;
+  max-width: 30ch;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.disparador__pista {
+  display: grid;
+  gap: .8rem;
+  justify-items: center;
+  font-size: clamp(.78rem, 2vw, .9rem);
+  opacity: .58;
+  letter-spacing: .02em;
+}
+
+.disparador__anillo {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, .5);
+  display: grid; place-items: center;
+}
+.disparador__anillo::after {
+  content: ""; width: 13px; height: 13px; border-radius: 50%;
+  background: var(--luna);
+  box-shadow: 0 0 22px 6px rgba(243, 241, 227, .35);
+}
+
+/* ============================================================
+   07 · TARJETA DE MENSAJE · Glassmorphism
+   ============================================================ */
+.mensaje {
+  position: relative;
+  z-index: 15;
+  width: min(540px, 88vw);
+  margin-bottom: clamp(60px, 16vh, 150px);   /* despeja el ramo inferior */
+  padding: clamp(1.5rem, 5vw, 2.6rem);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, .24);
+  border: 1px solid var(--vidrio-borde);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: 0 22px 60px -22px rgba(30, 45, 70, .45),
+              inset 0 1px 0 rgba(255, 255, 255, .5);
+  color: var(--tinta-dia);
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate3d(0, 34px, 0) scale(.97);
+  transition: transform 1200ms var(--rebote),
+              opacity 900ms var(--entrada),
+              visibility 0s linear 1200ms;
+}
+
+/* Mensaje del día: la caligrafía es la revelación, así que aquí
+   vive Caveat y no en un remate suelto al final */
+.linea {
+  font-family: 'Caveat', cursive;
+  font-size: clamp(1.55rem, 4.6vw, 2.15rem);
+  font-weight: 500;
+  line-height: 1.35;
+  color: #1f3350;
+  max-width: 22ch;
+  text-wrap: balance;
+  margin-inline: auto;
+  opacity: 0;
+  transform: translate3d(0, 24px, 0);
+  filter: blur(5px);
+  transition: transform 900ms var(--entrada),
+              opacity 900ms var(--entrada),
+              filter 900ms var(--entrada);
+}
+.linea + .linea { margin-top: .55rem; }
+
+.firma {
+  margin-top: clamp(1.2rem, 3.6vw, 1.7rem);
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, .45);
+  opacity: 0;
+  transition: opacity 500ms var(--entrada);
+}
+
+/* El nombre no se desvanece: se escribe. Una máscara `inset` viaja
+   de izquierda a derecha, como si alguien pasara el bolígrafo. */
+.firma__nombre {
+  display: block;
+  padding: 0 .12em .08em;
+  font-family: 'Caveat', cursive;
+  font-weight: 700;
+  font-size: clamp(2.6rem, 9vw, 3.6rem);
+  line-height: 1.1;
+  color: #1b2f4a;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 1500ms cubic-bezier(.62, .05, .38, .98);
+}
+
+/* Trazo bajo el nombre, dibujado con el mismo gesto */
+.firma__trazo {
+  display: block;
+  width: min(210px, 60%);
+  height: 12px;
+  margin: .1rem auto 0;
+  overflow: visible;
+}
+.firma__trazo path {
+  fill: none;
+  stroke: #d99b16;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-dasharray: 230;
+  stroke-dashoffset: 230;
+  transition: stroke-dashoffset 900ms var(--entrada);
+}
+
+.firma__pie {
+  display: block;
+  margin-top: .55rem;
+  font-family: 'Caveat', cursive;
+  font-size: clamp(1.1rem, 3.2vw, 1.35rem);
+  font-weight: 500;
+  color: #3c5170;
+  opacity: 0;
+  transition: opacity 700ms var(--entrada);
+}
+
+/* ============================================================
+   08 · CONTROLES INFERIORES
+   ============================================================ */
+.pie {
+  position: absolute;
+  z-index: 25;
+  left: 50%;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem 1rem;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  max-width: 92vw;
+  transform: translateX(-50%) translateY(10px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 600ms ease 5600ms,
+              transform 600ms var(--entrada) 5600ms,
+              visibility 0s linear 6200ms;
+}
+.pie__pista {
+  font-size: .85rem;
+  color: var(--tinta-dia);
+  opacity: .7;
+}
+.regreso {
+  padding: .55rem 1.2rem;
+  border-radius: 999px;
+  font-size: .86rem;
+  font-weight: 500;
+  color: var(--tinta-dia);
+  background: rgba(255, 255, 255, .34);
+  border: 1px solid var(--vidrio-borde);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.regreso:hover { background: rgba(255, 255, 255, .5); }
+
+/* ============================================================
+   09 · MÁQUINA DE ESTADOS
+   Toda la coreografía cuelga de una sola clase en <body>.
+   ============================================================ */
+.es-dia .cielo--noche { opacity: 0; }
+.es-dia .cielo--dia   { opacity: 1; }
+.es-dia .estrellas    { opacity: 0; }
+.es-dia .luna         { opacity: 0; transform: translate3d(16px, -24vh, 0) scale(.85); }
+.es-dia .sol          { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+
+.es-dia .nube   { opacity: .88; transition-delay: 1800ms; animation: deriva 46s linear 2600ms infinite; }
+.es-dia .nube--b{ transition-delay: 2200ms; animation-duration: 64s; animation-delay: 3200ms; }
+
+@keyframes deriva {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(130vw, 0, 0); }
+}
+
+/* La vida de la escena se releva: se apagan las luciérnagas,
+   salen las mariposas */
+.es-dia .nocturnos { opacity: 0; }
+.es-dia .diurnos   { opacity: 1; transition-delay: 2000ms; }
+.es-dia .estrella  { animation-play-state: paused; }
+
+/* El campo recupera color con el mismo ritmo que el cielo */
+.es-dia .paisaje { filter: brightness(1) saturate(1); }
+
+/* Los girasoles se enderezan y giran hacia el sol, en cascada */
+.es-dia .planta__cuerpo {
+  transform: rotate(var(--giro, 0deg)) scale(1);
+  transition-delay: var(--retraso, 0ms);
+}
+
+.es-dia .disparador { opacity: 0; transform: translate3d(0, -14px, 0); pointer-events: none; }
+
+.es-dia .mensaje {
+  opacity: 1;
+  visibility: visible;
+  transform: translate3d(0, 0, 0) scale(1);
+  transition-delay: 700ms, 700ms, 0s;
+}
+
+/* Cascada de lectura secuencial */
+.es-dia .linea { opacity: 1; transform: translate3d(0, 0, 0); filter: blur(0); }
+.es-dia .linea:nth-of-type(1) { transition-delay: 1150ms; }
+.es-dia .linea:nth-of-type(2) { transition-delay: 1800ms; }
+.es-dia .linea:nth-of-type(3) { transition-delay: 2450ms; }
+
+.es-dia .firma {
+  opacity: 1;
+  transition-delay: 3200ms;
+}
+.es-dia .firma__nombre {
+  clip-path: inset(0 0 0 0);
+  transition-delay: 3350ms;
+}
+.es-dia .firma__trazo path {
+  stroke-dashoffset: 0;
+  transition-delay: 4500ms;
+}
+.es-dia .firma__pie {
+  opacity: .85;
+  transition-delay: 5000ms;
+}
+
+.es-dia .ramo {
+  opacity: 1;
+  transform: translate3d(-50%, 0, 0);
+  transition-delay: 2400ms;
+}
+
+.es-dia .pie { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+
+/* ============================================================
+   10 · RESPONSIVIDAD
+   ============================================================ */
+
+/* Móvil vertical */
+@media (max-width: 600px) {
+  .sol   { bottom: 30%; left: 8%; }
+  .luna  { top: 9%; right: 8%; }
+  .nube--b { display: none; }
+  .mensaje { width: 92vw; border-radius: 22px; margin-bottom: clamp(90px, 20vh, 170px); }
+  .ramo  { width: clamp(200px, 62vw, 300px); }
+  .paisaje { height: clamp(180px, 34vh, 320px); }
+}
+
+/* Alturas cortas (móvil apaisado): la escena se comprime sin romperse */
+@media (max-height: 540px) {
+  .paisaje { height: 46vh; }
+  .sol { bottom: 12%; width: clamp(64px, 11vw, 110px); }
+  .mensaje { padding: 1rem 1.3rem; margin-bottom: 3.4rem; }
+  .linea + .linea { margin-top: .55rem; }
+  .firma { margin-top: .8rem; padding-top: .7rem; }
+  .ramo { width: clamp(150px, 22vw, 240px); }
+}
+
+/* Monitores ultrawide: se contiene la escala y se recentra la composición */
+@media (min-width: 1600px) {
+  .mensaje { width: 600px; }
+  .sol  { left: 24%; }
+  .luna { right: 24%; }
+  .ramo { width: 460px; }
+  .paisaje { height: clamp(320px, 40vh, 520px); }
+}
+
+/* Movimiento reducido: se conserva la narrativa, se anula la física */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 240ms !important;
+    transition-delay: 0ms !important;
+    animation: none !important;
+  }
+  .linea, .firma, .sol, .planta__cuerpo { transform: none !important; filter: none !important; }
+  .firma__nombre { clip-path: none !important; }
+  .firma__trazo path { stroke-dashoffset: 0 !important; }
+  .planta__globo { transform: none !important; }
+  .ramo { transform: translate3d(-50%, 0, 0) !important; }
+}
+</style>
+</head>
+
+<body>
+<main class="escena">
+
+  <!-- ---------- Entorno ---------- -->
+  <div class="capa cielo--noche" aria-hidden="true"></div>
+  <div class="capa cielo--dia" aria-hidden="true"></div>
+  <div class="capa estrellas" aria-hidden="true">
+    <span class="estrella" style="--x:45.0%; --y:36.0%; --s:3.1px; --dur:5.6s; --deriva:58.0s; --del:4.1s; --dx:-5.7px; --dy:0.2px"></span>
+    <span class="estrella" style="--x:61.8%; --y:49.8%; --s:1.8px; --dur:4.9s; --deriva:42.0s; --del:5.7s; --dx:3.5px; --dy:-6.4px"></span>
+    <span class="estrella" style="--x:95.3%; --y:59.9%; --s:2.6px; --dur:6.4s; --deriva:44.0s; --del:0.1s; --dx:0.5px; --dy:-6.2px"></span>
+    <span class="estrella" style="--x:20.1%; --y:17.3%; --s:1.6px; --dur:5.6s; --deriva:56.0s; --del:5.9s; --dx:0.3px; --dy:2.0px"></span>
+    <span class="estrella" style="--x:49.5%; --y:42.1%; --s:2.3px; --dur:4.7s; --deriva:78.0s; --del:7.0s; --dx:6.1px; --dy:2.9px"></span>
+    <span class="estrella" style="--x:32.0%; --y:16.6%; --s:2.1px; --dur:3.7s; --deriva:69.0s; --del:2.8s; --dx:6.2px; --dy:-1.6px"></span>
+    <span class="estrella" style="--x:93.0%; --y:53.0%; --s:1.6px; --dur:4.4s; --deriva:74.0s; --del:3.3s; --dx:8.6px; --dy:-1.4px"></span>
+    <span class="estrella" style="--x:8.9%; --y:40.1%; --s:2.8px; --dur:4.7s; --deriva:41.0s; --del:2.3s; --dx:8.4px; --dy:3.6px"></span>
+    <span class="estrella" style="--x:13.2%; --y:17.5%; --s:1.8px; --dur:3.7s; --deriva:70.0s; --del:1.2s; --dx:1.1px; --dy:-0.7px"></span>
+    <span class="estrella" style="--x:20.1%; --y:46.2%; --s:1.8px; --dur:6.5s; --deriva:43.0s; --del:2.9s; --dx:-5.2px; --dy:-3.2px"></span>
+    <span class="estrella" style="--x:94.2%; --y:50.4%; --s:2.1px; --dur:7.6s; --deriva:46.0s; --del:2.8s; --dx:6.4px; --dy:2.0px"></span>
+    <span class="estrella" style="--x:11.5%; --y:61.4%; --s:1.9px; --dur:4.6s; --deriva:69.0s; --del:2.3s; --dx:-3.7px; --dy:-6.0px"></span>
+    <span class="estrella" style="--x:10.6%; --y:37.4%; --s:2.0px; --dur:6.3s; --deriva:53.0s; --del:3.2s; --dx:8.3px; --dy:-0.2px"></span>
+    <span class="estrella" style="--x:56.6%; --y:54.1%; --s:1.9px; --dur:4.1s; --deriva:74.0s; --del:5.7s; --dx:-4.5px; --dy:-4.3px"></span>
+    <span class="estrella" style="--x:72.2%; --y:58.5%; --s:1.9px; --dur:8.0s; --deriva:73.0s; --del:4.2s; --dx:-1.4px; --dy:-5.5px"></span>
+    <span class="estrella" style="--x:5.7%; --y:59.8%; --s:2.0px; --dur:6.8s; --deriva:48.0s; --del:5.8s; --dx:1.7px; --dy:-2.9px"></span>
+    <span class="estrella" style="--x:18.7%; --y:45.5%; --s:1.7px; --dur:4.5s; --deriva:60.0s; --del:6.0s; --dx:2.1px; --dy:-3.1px"></span>
+    <span class="estrella" style="--x:89.1%; --y:15.0%; --s:1.6px; --dur:4.7s; --deriva:56.0s; --del:0.4s; --dx:-5.8px; --dy:-1.8px"></span>
+    <span class="estrella" style="--x:56.4%; --y:10.8%; --s:2.2px; --dur:7.7s; --deriva:77.0s; --del:4.6s; --dx:3.4px; --dy:1.2px"></span>
+    <span class="estrella" style="--x:15.3%; --y:5.1%; --s:1.6px; --dur:7.8s; --deriva:66.0s; --del:6.7s; --dx:-8.6px; --dy:1.9px"></span>
+    <span class="estrella" style="--x:47.8%; --y:46.1%; --s:2.1px; --dur:8.2s; --deriva:41.0s; --del:3.8s; --dx:4.3px; --dy:5.6px"></span>
+    <span class="estrella" style="--x:72.0%; --y:44.5%; --s:2.9px; --dur:7.8s; --deriva:52.0s; --del:4.8s; --dx:7.2px; --dy:5.2px"></span>
+    <span class="estrella" style="--x:41.6%; --y:49.6%; --s:3.0px; --dur:6.1s; --deriva:63.0s; --del:2.7s; --dx:1.5px; --dy:1.5px"></span>
+    <span class="estrella" style="--x:9.6%; --y:40.7%; --s:3.2px; --dur:7.6s; --deriva:67.0s; --del:2.7s; --dx:4.2px; --dy:1.1px"></span>
+  </div>
+  <div class="luna" aria-hidden="true"></div>
+  <div class="sol" aria-hidden="true"></div>
+  <div class="nube nube--a" aria-hidden="true"></div>
+  <div class="nube nube--b" aria-hidden="true"></div>
+
+  <!-- Luciérnagas: sólo de noche -->
+  <div class="nocturnos" aria-hidden="true">
+    <span class="luciernaga" style="--x:45.0%; --y:82.2%; --s:4.2px; --dur:26.0s; --pulso:2.7s; --del:5.4s; --a:-2px; --b:-18px; --c:18px; --d:0px; --e:11px; --f:29px; --g:-22px; --h:-33px;"></span>
+    <span class="luciernaga" style="--x:33.3%; --y:76.4%; --s:4.5px; --dur:19.0s; --pulso:5.1s; --del:5.9s; --a:-5px; --b:27px; --c:-16px; --d:11px; --e:-28px; --f:-5px; --g:28px; --h:28px;"></span>
+    <span class="luciernaga" style="--x:81.9%; --y:65.8%; --s:5.5px; --dur:20.8s; --pulso:3.0s; --del:4.5s; --a:31px; --b:24px; --c:19px; --d:31px; --e:-21px; --f:-22px; --g:-5px; --h:-15px;"></span>
+    <span class="luciernaga" style="--x:26.0%; --y:66.9%; --s:5.6px; --dur:22.9s; --pulso:3.5s; --del:7.6s; --a:44px; --b:-3px; --c:-39px; --d:-32px; --e:34px; --f:-31px; --g:19px; --h:5px;"></span>
+    <span class="luciernaga" style="--x:34.0%; --y:80.5%; --s:4.0px; --dur:18.6s; --pulso:3.9s; --del:0.2s; --a:30px; --b:-18px; --c:-33px; --d:-31px; --e:12px; --f:-4px; --g:12px; --h:11px;"></span>
+    <span class="luciernaga" style="--x:75.8%; --y:86.5%; --s:5.7px; --dur:19.4s; --pulso:3.9s; --del:1.6s; --a:-45px; --b:-2px; --c:20px; --d:-22px; --e:-21px; --f:-10px; --g:18px; --h:1px;"></span>
+    <span class="luciernaga" style="--x:59.6%; --y:79.2%; --s:5.0px; --dur:26.5s; --pulso:5.1s; --del:0.8s; --a:40px; --b:15px; --c:-34px; --d:-3px; --e:12px; --f:28px; --g:-11px; --h:5px;"></span>
+    <span class="luciernaga" style="--x:81.9%; --y:80.7%; --s:6.4px; --dur:22.6s; --pulso:4.4s; --del:1.8s; --a:20px; --b:22px; --c:13px; --d:15px; --e:-26px; --f:27px; --g:44px; --h:32px;"></span>
+  </div>
+
+  <!-- Mariposas: cruzan el campo cuando ya amaneció -->
+  <div class="diurnos" aria-hidden="true">
+    <svg class="mariposa" viewBox="0 0 44 32" aria-hidden="true"
+         style="--y:18%; --w:30px; --dur:52s; --del:3s; --aleteo:0.82s">
+      <g stroke="var(--contorno)" stroke-width="1.6" stroke-linejoin="round">
+        <path class="ala" d="M22,16 C11,3 2,7 4,15 C6,23 15,24 22,17 Z" fill="#f7b23c"/>
+        <path class="ala" d="M22,16 C33,3 42,7 40,15 C38,23 29,24 22,17 Z" fill="#ffdb96"/>
+        <ellipse cx="22" cy="16" rx="1.7" ry="6.5" fill="var(--contorno)" stroke="none"/>
+        <path d="M22,10 C20,6 18,5 16,4.5" fill="none" stroke-width="1.2"/>
+        <path d="M22,10 C24,6 26,5 28,4.5" fill="none" stroke-width="1.2"/>
+      </g>
+    </svg>
+    <svg class="mariposa" viewBox="0 0 44 32" aria-hidden="true"
+         style="--y:34%; --w:38px; --dur:44s; --del:16s; --aleteo:0.7s">
+      <g stroke="var(--contorno)" stroke-width="1.6" stroke-linejoin="round">
+        <path class="ala" d="M22,16 C11,3 2,7 4,15 C6,23 15,24 22,17 Z" fill="#eb8f4a"/>
+        <path class="ala" d="M22,16 C33,3 42,7 40,15 C38,23 29,24 22,17 Z" fill="#ffcf9c"/>
+        <ellipse cx="22" cy="16" rx="1.7" ry="6.5" fill="var(--contorno)" stroke="none"/>
+        <path d="M22,10 C20,6 18,5 16,4.5" fill="none" stroke-width="1.2"/>
+        <path d="M22,10 C24,6 26,5 28,4.5" fill="none" stroke-width="1.2"/>
+      </g>
+    </svg>
+    <svg class="mariposa" viewBox="0 0 44 32" aria-hidden="true"
+         style="--y:48%; --w:26px; --dur:61s; --del:30s; --aleteo:0.95s">
+      <g stroke="var(--contorno)" stroke-width="1.6" stroke-linejoin="round">
+        <path class="ala" d="M22,16 C11,3 2,7 4,15 C6,23 15,24 22,17 Z" fill="#f5c518"/>
+        <path class="ala" d="M22,16 C33,3 42,7 40,15 C38,23 29,24 22,17 Z" fill="#ffe9a8"/>
+        <ellipse cx="22" cy="16" rx="1.7" ry="6.5" fill="var(--contorno)" stroke="none"/>
+        <path d="M22,10 C20,6 18,5 16,4.5" fill="none" stroke-width="1.2"/>
+        <path d="M22,10 C24,6 26,5 28,4.5" fill="none" stroke-width="1.2"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- ---------- Paisaje: colinas y campo de girasoles ---------- -->
+  <svg class="paisaje" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMax slice" role="group" aria-label="Campo de girasoles">
+    <title>Campo de girasoles</title>
+    <defs>
+      <!-- Trama cruzada del corazón del girasol -->
+      <pattern id="trama" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <path d="M0 0 V9" stroke="var(--trama)" stroke-width="1.5"/>
+        <path d="M0 0 H9" stroke="var(--trama)" stroke-width="1.5"/>
+      </pattern>
+
+      <!-- Un solo girasol, reutilizado en todo el campo -->
+      <symbol id="girasol" viewBox="0 0 100 210">
+        <g stroke="var(--contorno)" stroke-width="2.6" stroke-linejoin="round">
+          <!-- Tallo -->
+          <path d="M50,64 C51,110 46,152 49,210" fill="none" stroke-width="6.5" stroke="var(--hoja)"/>
+          <path d="M50,64 C51,110 46,152 49,210" fill="none" stroke-width="9" stroke="var(--contorno)" opacity=".28"/>
+          <!-- Hojas -->
+          <path d="M48,122 C24,106 6,126 19,145 C31,161 45,146 48,134 Z" fill="var(--hoja)"/>
+          <path d="M50,156 C75,141 92,160 79,177 C67,192 53,173 50,163 Z" fill="var(--hoja)"/>
+          <!-- Pétalos: 14 elipses rotadas alrededor del corazón -->
+          <g fill="var(--petalo)">
+            <ellipse cx="50" cy="17" rx="8" ry="17"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(25.7 50 48)"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(51.4 50 48)"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(77.1 50 48)"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(102.9 50 48)"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(128.6 50 48)"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(154.3 50 48)"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(180 50 48)"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(205.7 50 48)"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(231.4 50 48)"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(257.1 50 48)"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(282.9 50 48)"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(308.6 50 48)"/>
+            <ellipse cx="50" cy="17" rx="8" ry="17" transform="rotate(334.3 50 48)"/>
+          </g>
+          <!-- Corazón -->
+          <circle cx="50" cy="48" r="18.5" fill="var(--corazon)"/>
+          <circle cx="50" cy="48" r="18.5" fill="url(#trama)" opacity=".5" stroke="none"/>
+          <circle cx="50" cy="48" r="18.5" fill="none"/>
+        </g>
+      </symbol>
+    </defs>
+
+    <!-- Colinas -->
+    <path class="colina" fill="var(--colina-lejos)"
+          d="M0,306 Q210,246 430,290 T870,272 T1200,304 L1200,420 L0,420 Z"/>
+    <path class="colina" fill="var(--colina-cerca)"
+          d="M0,352 Q270,302 530,348 T1050,338 T1200,360 L1200,420 L0,420 Z"/>
+
+    <!-- Campo lejano: escala pequeña, giro leve, sólo decorativo -->
+    <g class="planta" aria-hidden="true" transform="translate(20,248) scale(.42)"  style="--giro:-7deg; --retraso:1500ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(180,242) scale(.44)" style="--giro:-5deg; --retraso:1650ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(560,244) scale(.43)" style="--giro:-9deg; --retraso:1800ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(660,250) scale(.40)" style="--giro:-4deg; --retraso:1950ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(1000,240) scale(.45)" style="--giro:-6deg; --retraso:2100ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(1150,250) scale(.41)" style="--giro:-8deg; --retraso:2250ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+
+    <g class="planta" aria-hidden="true" transform="translate(100,246) scale(.40)" style="--giro:-6deg; --retraso:1420ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(250,250) scale(.38)" style="--giro:-9deg; --retraso:1580ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(360,252) scale(.36)" style="--giro:-4deg; --retraso:1730ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(450,244) scale(.44)" style="--giro:-7deg; --retraso:1880ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(730,248) scale(.41)" style="--giro:-5deg; --retraso:2020ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(840,252) scale(.37)" style="--giro:-8deg; --retraso:2170ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(950,246) scale(.43)" style="--giro:-6deg; --retraso:2320ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(1100,244) scale(.39)" style="--giro:-10deg; --retraso:2460ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+
+    <!-- Media distancia: rellenan el centro, tras el ramo -->
+    <g class="planta" aria-hidden="true" transform="translate(500,238) scale(.58)" style="--giro:-7deg; --retraso:2600ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(640,244) scale(.55)" style="--giro:-5deg; --retraso:2740ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(60,240) scale(.62)" style="--giro:-11deg; --retraso:2880ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+    <g class="planta" aria-hidden="true" transform="translate(1000,236) scale(.60)" style="--giro:-9deg; --retraso:3020ms"><g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g></g>
+
+    <!-- ============================================================
+         PRIMER PLANO · cada girasol guarda un detalle
+         Para cambiar una frase basta con editar el <title> y el
+         <text> de la misma planta. El ancla lleva la escala inversa
+         (1 ÷ escala de la planta) para que todas midan igual.
+         ============================================================ -->
+    <g class="planta" tabindex="0" transform="translate(120,234) scale(.95)" style="--giro:-11deg; --retraso:2400ms">
+      <title>Tu forma de ser</title>
+      <g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g>
+      <g transform="scale(1.0526)"><g class="planta__globo"><text class="planta__frase" x="47.5" y="-0.4" text-anchor="middle">Tu forma de ser</text></g></g>
+    </g>
+
+    <g class="planta" tabindex="0" transform="translate(300,246) scale(.82)" style="--giro:-8deg; --retraso:2550ms">
+      <title>Tu risa</title>
+      <g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g>
+      <g transform="scale(1.2195)"><g class="planta__globo"><text class="planta__frase" x="41" y="-6.6" text-anchor="middle">Tu risa</text></g></g>
+    </g>
+
+    <g class="planta" tabindex="0" transform="translate(380,238) scale(.90)" style="--giro:-6deg; --retraso:2700ms">
+      <title>Cómo escuchas</title>
+      <g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g>
+      <g transform="scale(1.1111)"><g class="planta__globo"><text class="planta__frase" x="45" y="-2.8" text-anchor="middle">Cómo escuchas</text></g></g>
+    </g>
+
+    <g class="planta" tabindex="0" transform="translate(800,240) scale(.88)" style="--giro:-5deg; --retraso:2850ms">
+      <title>Tu paciencia</title>
+      <g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g>
+      <g transform="scale(1.1364)"><g class="planta__globo"><text class="planta__frase" x="44" y="-3.8" text-anchor="middle">Tu paciencia</text></g></g>
+    </g>
+
+    <g class="planta" tabindex="0" transform="translate(880,232) scale(.98)" style="--giro:-9deg; --retraso:3000ms">
+      <title>Tu manera de mirar</title>
+      <g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g>
+      <g transform="scale(1.0204)"><g class="planta__globo"><text class="planta__frase" x="49" y="1" text-anchor="middle">Tu manera de mirar</text></g></g>
+    </g>
+
+    <g class="planta" tabindex="0" transform="translate(1060,230) scale(1)" style="--giro:-12deg; --retraso:3150ms">
+      <title>Cuando te emocionas</title>
+      <g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g>
+      <g transform="scale(1)"><g class="planta__globo"><text class="planta__frase" x="50" y="2" text-anchor="middle">Cuando te emocionas</text></g></g>
+    </g>
+
+    <g class="planta" tabindex="0" transform="translate(210,242) scale(.86)" style="--giro:-7deg; --retraso:3300ms">
+      <title>Tu voz</title>
+      <g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g>
+      <g transform="scale(1.1628)"><g class="planta__globo"><text class="planta__frase" x="43" y="-4.7" text-anchor="middle">Tu voz</text></g></g>
+    </g>
+
+    <g class="planta" tabindex="0" transform="translate(960,236) scale(.92)" style="--giro:-10deg; --retraso:3450ms">
+      <title>Tu esencia</title>
+      <g class="planta__cuerpo"><use href="#girasol" width="100" height="210"/></g>
+      <g transform="scale(1.0870)"><g class="planta__globo"><text class="planta__frase" x="46" y="-1.8" text-anchor="middle">Tu esencia</text></g></g>
+    </g>
+  </svg>
+
+  <!-- ---------- Ramo (activo externo, fusionado con el cielo) ---------- -->
+  <div class="ramo fusion-multiply" role="img" aria-label="Un ramo de girasoles sostenido entre dos manos"></div>
+
+  <!-- ---------- Estado inicial: única superficie interactiva ---------- -->
+  <button class="disparador" id="disparador" type="button">
+    <span class="disparador__frase">
+      Hay detalles que roban sonrisas e invaden el corazón.
+    </span>
+    <span class="disparador__pista">
+      <span class="disparador__anillo" aria-hidden="true"></span>
+      Toca para que amanezca
+    </span>
+  </button>
+
+  <!-- ---------- Narrativa revelada ---------- -->
+  <section class="mensaje" aria-live="polite">
+    <p class="linea">Eres bonita, inteligente, y única,</p>
+    <p class="linea">no necesitas competir ni compararte con nadie,</p>
+    <p class="linea">porque tú tienes esa esencia que nadie más tiene.</p>
+    <p class="firma">
+      <span class="firma__nombre">Sandy</span>
+      <svg class="firma__trazo" viewBox="0 0 220 12" aria-hidden="true">
+        <path d="M6,8.5 C58,2.5 138,2 214,6.5"/>
+      </svg>
+      <span class="firma__pie">con mucho amor</span>
+    </p>
+  </section>
+
+  <!-- ---------- Controles ---------- -->
+  <div class="pie">
+    <span class="pie__pista">Toca los girasoles del campo</span>
+    <button class="regreso" id="regreso" type="button">Volver a la noche</button>
+  </div>
+</main>
+
+<script>
+/* ============================================================
+   CONTROLADORES DE ESTADO · Vanilla JS
+   Responsabilidad única: capturar el evento y mutar la clase.
+   Ninguna animación se calcula aquí; el CSS asume el 100 %.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var cuerpo     = document.body;
+  var disparador = document.getElementById('disparador');
+  var regreso    = document.getElementById('regreso');
+  var ESTADO_DIA = 'es-dia';
+
+  /* Amanecer: dispara la cascada completa de transiciones */
+  function amanecer() {
+    if (cuerpo.classList.contains(ESTADO_DIA)) return;
+    cuerpo.classList.add(ESTADO_DIA);
+    cuerpo.style.setProperty('--tinta', 'var(--tinta-dia)');
+  }
+
+  /* Anochecer: revierte al estado inicial y permite repetir la escena */
+  function anochecer() {
+    cuerpo.classList.remove(ESTADO_DIA);
+    cuerpo.style.removeProperty('--tinta');
+    disparador.focus({ preventScroll: true });
+  }
+
+  disparador.addEventListener('click', amanecer);
+  regreso.addEventListener('click', anochecer);
+})();
+</script>
+</body>
+</html>
