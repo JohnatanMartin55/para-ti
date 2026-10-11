@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Una cartita para ti 🐾</title>
+  <meta name="description" content="Un gatito mensajero te trae una carta: todo te va a salir bien." />
+  <meta property="og:title" content="Un gatito te trajo una carta 💌" />
+  <meta property="og:description" content="Ábrela, es para ti. Todo te va a salir bien 🐾" />
+  <meta name="theme-color" content="#2a2152" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐱</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- cielo de fondo -->
+  <div class="sky" aria-hidden="true">
+    <div class="moon"></div>
+    <div class="stars"></div>
+    <div class="stars stars--2"></div>
+  </div>
+  <canvas id="fx" aria-hidden="true"></canvas>
+
+  <main class="stage">
+    <header class="heading">
+      <p class="eyebrow">correo gatuno · entrega especial</p>
+      <h1 class="title">Una cartita para ti, <span class="name" id="toName">Sandy</span></h1>
+    </header>
+
+    <!-- El gatito -->
+    <div class="cat-zone">
+      <button class="cat" id="cat" type="button" aria-label="Acariciar al gatito">
+        <svg viewBox="0 0 200 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
+          <g class="cat-tail">
+            <path d="M138 176 C185 176 192 132 172 112 C164 104 156 112 162 120 C174 136 166 160 136 162 Z" fill="var(--fur)" />
+            <path d="M176 118 C170 112 165 113 164 118" stroke="var(--stripe)" stroke-width="5" fill="none" stroke-linecap="round"/>
+            <path d="M178 142 C172 140 168 142 167 146" stroke="var(--stripe)" stroke-width="5" fill="none" stroke-linecap="round"/>
+          </g>
+          <g class="cat-body">
+            <ellipse cx="100" cy="158" rx="52" ry="42" fill="var(--fur)" />
+            <ellipse cx="100" cy="166" rx="30" ry="27" fill="var(--belly)" />
+            <ellipse cx="78" cy="196" rx="15" ry="9" fill="var(--fur)" />
+            <ellipse cx="122" cy="196" rx="15" ry="9" fill="var(--fur)" />
+            <!-- corazón que sostiene -->
+            <path class="cat-heart" d="M100 194 C86 184 80 176 84 169 C88 162 97 164 100 170 C103 164 112 162 116 169 C120 176 114 184 100 194 Z" fill="var(--heart)" />
+            <ellipse cx="85" cy="182" rx="11" ry="8" fill="var(--fur)" />
+            <ellipse cx="115" cy="182" rx="11" ry="8" fill="var(--fur)" />
+          </g>
+          <g class="cat-head">
+            <path d="M50 76 L56 26 L92 54 Z" fill="var(--fur)" />
+            <path d="M150 76 L144 26 L108 54 Z" fill="var(--fur)" />
+            <path d="M58 64 L61 38 L80 54 Z" fill="var(--ear)" />
+            <path d="M142 64 L139 38 L120 54 Z" fill="var(--ear)" />
+            <ellipse cx="100" cy="92" rx="60" ry="50" fill="var(--fur)" />
+            <path d="M100 46 L100 60 M88 48 L91 61 M112 48 L109 61" stroke="var(--stripe)" stroke-width="5" stroke-linecap="round" />
+            <path d="M40 92 L52 94 M42 102 L53 101" stroke="var(--stripe)" stroke-width="4" stroke-linecap="round" />
+            <path d="M160 92 L148 94 M158 102 L147 101" stroke="var(--stripe)" stroke-width="4" stroke-linecap="round" />
+            <!-- ojos abiertos -->
+            <g class="eyes-open">
+              <g class="eye"><ellipse cx="78" cy="92" rx="10" ry="12" fill="var(--ink-cat)" />
+                <g class="pupil"><circle cx="81" cy="87" r="3.6" fill="#fff"/><circle cx="76" cy="96" r="1.6" fill="#fff" opacity=".8"/></g></g>
+              <g class="eye"><ellipse cx="122" cy="92" rx="10" ry="12" fill="var(--ink-cat)" />
+                <g class="pupil"><circle cx="125" cy="87" r="3.6" fill="#fff"/><circle cx="120" cy="96" r="1.6" fill="#fff" opacity=".8"/></g></g>
+            </g>
+            <!-- ojos felices ^^ -->
+            <g class="eyes-happy" stroke="var(--ink-cat)" stroke-width="4" fill="none" stroke-linecap="round">
+              <path d="M68 96 Q78 82 88 96" />
+              <path d="M112 96 Q122 82 132 96" />
+            </g>
+            <ellipse class="blush" cx="62" cy="110" rx="10" ry="6" fill="var(--blush)" />
+            <ellipse class="blush" cx="138" cy="110" rx="10" ry="6" fill="var(--blush)" />
+            <path d="M95 104 L105 104 L100 110 Z" fill="var(--ear)" stroke="var(--ear)" stroke-linejoin="round" stroke-width="2" />
+            <path d="M91 113 Q95.5 119 100 113 Q104.5 119 109 113" stroke="var(--ink-cat)" stroke-width="2.4" fill="none" stroke-linecap="round" />
+            <g stroke="var(--whisker)" stroke-width="1.8" stroke-linecap="round">
+              <path d="M30 104 L66 108" /><path d="M32 118 L66 113" />
+              <path d="M170 104 L134 108" /><path d="M168 118 L134 113" />
+            </g>
+          </g>
+        </svg>
+        <span class="purr-label" aria-hidden="true">prrr…</span>
+      </button>
+      <div class="mimos" id="mimos" aria-live="polite" hidden>
+        <span>🐾 mimos:</span> <strong id="mimosCount">0</strong>
+      </div>
+    </div>
+
+    <!-- Fase 1: el sobre -->
+    <section class="envelope-zone" id="envelopeZone">
+      <button class="envelope" id="envelope" type="button" aria-label="Abrir la carta">
+        <span class="env-back"></span>
+        <span class="env-letter">
+          <span class="env-letter-line"></span>
+          <span class="env-letter-line"></span>
+          <span class="env-letter-line short"></span>
+        </span>
+        <span class="env-front"></span>
+        <span class="env-flap"></span>
+        <span class="env-seal" aria-hidden="true">
+          <svg viewBox="0 0 40 40"><g fill="currentColor"><ellipse cx="20" cy="25" rx="8" ry="7"/><circle cx="11" cy="16" r="3.6"/><circle cx="17" cy="11" r="3.6"/><circle cx="24" cy="11" r="3.6"/><circle cx="30" cy="16" r="3.6"/></g></svg>
+        </span>
+      </button>
+      <p class="hint">Toca el sobre para abrirlo 💌</p>
+    </section>
+
+    <!-- Fase 2: la carta -->
+    <section class="letter-zone" id="letterZone" hidden>
+      <article class="paper" id="paper" aria-live="polite">
+        <span class="tape tape--l" aria-hidden="true"></span>
+        <span class="tape tape--r" aria-hidden="true"></span>
+        <div class="letter-text" id="letterText"></div>
+        <p class="signature" id="signature">
+          Con todo mi cariño,<br />
+          <span id="fromName">Johnatan</span> <span aria-hidden="true">🐾</span>
+        </p>
+        <p class="skip-hint" id="skipHint">toca la carta para leerla de una vez</p>
+      </article>
+
+      <div class="actions" id="actions">
+        <div class="jar-card" id="jarCard">
+          <button class="jar" id="jarBtn" type="button">
+            <span class="jar-icon" aria-hidden="true">
+              <svg viewBox="0 0 64 72"><rect x="18" y="4" width="28" height="10" rx="3" fill="var(--lid)"/><path d="M14 18 Q14 14 18 14 H46 Q50 14 50 18 V20 Q58 26 58 40 V60 Q58 68 50 68 H14 Q6 68 6 60 V40 Q6 26 14 20 Z" fill="rgba(255,255,255,.35)" stroke="rgba(255,255,255,.75)" stroke-width="2"/><g class="jar-hearts"><path d="M22 52 c-5-4-6-8-3-10 2-1 3 0 3 1 0-1 1-2 3-1 3 2 2 6-3 10z" fill="var(--heart)"/><path d="M40 46 c-5-4-6-8-3-10 2-1 3 0 3 1 0-1 1-2 3-1 3 2 2 6-3 10z" fill="var(--sun)"/><path d="M31 60 c-5-4-6-8-3-10 2-1 3 0 3 1 0-1 1-2 3-1 3 2 2 6-3 10z" fill="var(--lilac)"/></g></svg>
+            </span>
+            <span class="jar-text">
+              <strong>Frasco de ánimos</strong>
+              <small>saca una notita cuando la necesites</small>
+            </span>
+          </button>
+          <p class="jar-note" id="jarNote" aria-live="polite"></p>
+        </div>
+
+        <div class="promise">
+          <p class="promise-q">¿Me prometes que vas a recordar que todo te va a salir bien?</p>
+          <button class="btn-promise" id="promiseBtn" type="button">Lo prometo <span aria-hidden="true">💛</span></button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Final -->
+  <div class="finale" id="finale" hidden role="dialog" aria-modal="true" aria-labelledby="finaleTitle">
+    <div class="finale-card">
+      <div class="finale-paws" aria-hidden="true">🐾 🐾 🐾</div>
+      <h2 id="finaleTitle">¡Prometido!</h2>
+      <p>Y cuando dudes, vuelve aquí. Este gatito va a estar esperándote para recordártelo:</p>
+      <p class="finale-big">todo te va a salir bien ✨</p>
+      <button class="btn-ghost" id="againBtn" type="button">Volver a leer la carta</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <button class="sound-toggle" id="soundBtn" type="button" aria-pressed="true" aria-label="Sonido activado">
+    <span class="on" aria-hidden="true">🔊</span><span class="off" aria-hidden="true">🔇</span>
+  </button>
+
+  <script src="script.js"></script>
+</body>
+</html>
