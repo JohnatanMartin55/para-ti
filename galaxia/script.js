@@ -47,10 +47,7 @@ const els = {
   hog: $("#hog"),
   hogBtn: $("#hogBtn"),
   zoomBtn: $("#zoomBtn"),
-  dot: $("#dot"),
-  dotCircle: $("#dotCircle"),
-  dotClipC: $("#dotClipC"),
-  dotImg: $("#dotImg"),
+  erizo: $("#erizo"),
   universe: $("#universe"),
   l1: $(".l1"),
   l2: $(".l2"),
@@ -626,49 +623,126 @@ const Sky = (() => {
 })();
 
 /* =========================================================
-   Preparar el erizo y la galaxia diminuta entre sus deditos
+   El zoom por escalas: imagen 1 → imagen 2 → imagen 3 → galaxia
+   Cada imagen se ancla en el espacio entre los deditos y se funde
+   con la siguiente mientras la cámara sigue acercándose.
+   rel = cuántos px de la imagen 1 mide 1 px de esta imagen
+   ========================================================= */
+const Zoom = (() => {
+  const canvas = $("#zoom");
+  const ctx = canvas.getContext("2d");
+  const IMGS = [
+    { src: "img/erizo-1.webp", dot: [109, 512], rel: 1, bg: [253, 253, 253] },
+    { src: "img/erizo-2.webp", dot: [161, 639], rel: 0.21, bg: [245, 218, 188], feather: 0.08 },
+    { src: "img/erizo-3.webp", dot: [313, 695], rel: 0.0714, bg: [243, 230, 214], feather: 0.1, dotR: 70 },
+  ];
+  let w = 0, h = 0, dpr = 1;
+
+  // bordes difuminados para que cada imagen se funda con la anterior
+  function feathered(img, f) {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const x = c.getContext("2d");
+    x.drawImage(img, 0, 0);
+    x.globalCompositeOperation = "destination-in";
+    const fx = c.width * f, fy = c.height * f;
+    let g = x.createLinearGradient(0, 0, c.width, 0);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(fx / c.width, "#000");
+    g.addColorStop(1 - fx / c.width, "#000");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    x.fillStyle = g;
+    x.fillRect(0, 0, c.width, c.height);
+    g = x.createLinearGradient(0, 0, 0, c.height);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(fy / c.height, "#000");
+    g.addColorStop(1 - fy / c.height, "#000");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    x.fillStyle = g;
+    x.fillRect(0, 0, c.width, c.height);
+    return c;
+  }
+
+  async function load() {
+    await Promise.all(IMGS.map(async (o) => {
+      const img = new Image();
+      img.src = o.src;
+      await img.decode();
+      o.w = img.naturalWidth;
+      o.h = img.naturalHeight;
+      o.draw = o.feather ? feathered(img, o.feather) : img;
+    }));
+  }
+
+  function size() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = window.innerWidth;
+    h = window.innerHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+  }
+
+  // transición suave en escala logarítmica
+  const ss = (a, b, m) => {
+    const t = clamp01((Math.log(m) - Math.log(a)) / (Math.log(b) - Math.log(a)));
+    return t * t * (3 - 2 * t);
+  };
+  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+
+  // m1 = px de pantalla por px de la imagen 1; p = dónde está el "poquito" en pantalla
+  function draw(m1, p) {
+    const a = [
+      1 - ss(2.2, 3.0, m1),
+      ss(1.45, 2.2, m1) * (1 - ss(5.6, 7.2, m1)),
+      ss(3.6, 5.6, m1),
+    ];
+    const bg = mix(mix(IMGS[0].bg, IMGS[1].bg, 1 - a[0]), IMGS[2].bg, a[2]);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = `rgb(${bg})`;
+    ctx.fillRect(0, 0, w, h);
+    IMGS.forEach((o, i) => {
+      if (a[i] < 0.002) return;
+      const m = m1 * o.rel;
+      const x = p.x - o.dot[0] * m;
+      const y = p.y - o.dot[1] * m;
+      const W = o.w * m, H = o.h * m;
+      if (x > w || y > h || x + W < 0 || y + H < 0) return;
+      ctx.globalAlpha = a[i];
+      ctx.drawImage(o.draw, x, y, W, H);
+    });
+  }
+
+  return {
+    load,
+    IMGS,
+    show() { size(); canvas.classList.add("on"); },
+    hide() { canvas.classList.remove("on"); canvas.style.opacity = ""; },
+    draw,
+    canvas,
+    dot3(m1) { return IMGS[2].dotR * IMGS[2].rel * m1; },
+  };
+})();
+
+/* =========================================================
+   Preparar
    ========================================================= */
 let state = "loading"; // loading → hog → zooming → space
-let hogWidth = 0;
-
-function placeDot() {
-  const { x, y, r } = Hog.DOT;
-  for (const el of [els.dotCircle, els.dotClipC]) {
-    el.setAttribute("cx", x);
-    el.setAttribute("cy", y);
-    el.setAttribute("r", r);
-  }
-  Object.entries({ x: x - r, y: y - r, width: r * 2, height: r * 2 }).forEach(([k, v]) => els.dotImg.setAttribute(k, v));
-}
-
-function prepareDot() {
-  Sky.build();
-  els.dotImg.setAttribute("href", Sky.snapshot());
-}
 
 async function init() {
-  placeDot();
-  prepareDot();
-  hogWidth = els.hogBtn.getBoundingClientRect().width;
-  await Hog.render({ body: $("#imgBody"), arm: $("#imgArm"), marks: $("#imgMarks") }, hogWidth);
+  Sky.build();
+  try {
+    await Promise.all([Zoom.load(), els.erizo.decode()]);
+  } catch (e) { /* si falla una imagen igual mostramos lo que haya */ }
   els.hog.classList.add("ready");
   state = "hog";
+  if (pendingZoom) zoomIn();
 }
+let pendingZoom = false;
 init();
-
-let resizeTimer;
-window.addEventListener("resize", () => {
-  if (state !== "hog") return;
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(async () => {
-    prepareDot();
-    const wNow = els.hogBtn.getBoundingClientRect().width;
-    if (wNow > hogWidth * 1.3) {
-      hogWidth = wNow;
-      await Hog.render({ body: $("#imgBody"), arm: $("#imgArm"), marks: $("#imgMarks") }, hogWidth);
-    }
-  }, 300);
-});
 
 /* =========================================================
    Toast
@@ -682,60 +756,63 @@ function toast(msg, ms = 3200) {
 }
 
 /* =========================================================
-   La transición: un solo movimiento continuo
-   1. la cámara viaja hacia el espacio entre los deditos
-   2. el puntito (que ya es una galaxia viva) crece con un halo de luz
-   3. la galaxia llena la pantalla y el erizo se desvanece detrás
+   La transición completa (un solo movimiento continuo)
    ========================================================= */
 async function zoomIn() {
+  if (state === "loading") { pendingZoom = true; return; }
   if (state !== "hog") return;
   state = "zooming";
   els.stage.classList.add("zooming");
   if (navigator.vibrate) navigator.vibrate(15);
+  await new Promise(requestAnimationFrame);
 
-  await new Promise(requestAnimationFrame); // animaciones en pausa antes de medir
-  const box = els.dotCircle.getBoundingClientRect();
-  const p = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
-  const r0 = box.width / 2;
+  // dónde está el "poquito" ahora mismo en la pantalla
+  const r = els.erizo.getBoundingClientRect();
+  const m0 = r.width / Zoom.IMGS[0].w;
+  const d = Zoom.IMGS[0].dot;
+  const p0 = { x: r.left + d[0] * m0, y: r.top + d[1] * m0 };
+
+  Zoom.show();
+  Zoom.draw(m0, p0);
+  els.hog.style.visibility = "hidden";
+
   const { x: gx, y: gy, R } = Sky.center;
   const { w, h } = Sky.size;
   const far = Math.hypot(Math.max(gx, w - gx), Math.max(gy, h - gy)) / 0.84;
+  const M_REVEAL = 6.3;   // aquí el puntito ya es una galaxia de buen tamaño
+  const M_END = 19;
+  const T = reducedMotion ? 1600 : 6200;
+  const L0 = Math.log(m0), L1 = Math.log(M_END);
+  const u = els.universe;
 
-  const T = reducedMotion ? 1100 : 3900;
-  const S_MAX = 18;
-
-  // la galaxia del canvas toma el lugar exacto del puntito
-  Sky.setReveal({ x: p.x, y: p.y, rad: r0, z: r0 / R, ring: 0 });
-  els.universe.classList.add("on", "revealing");
-  els.universe.setAttribute("aria-hidden", "false");
-  Sky.start();
-  await new Promise(requestAnimationFrame);
-  els.dot.style.visibility = "hidden";
-
-  els.stage.style.transformOrigin = `${p.x}px ${p.y}px`;
-  Sound.whoosh((T / 1000) * 0.8);
-  setTimeout(() => Sound.pad(), T * 0.5);
+  Sound.whoosh((T / 1000) * 0.62);
+  let kReveal = null;
 
   await new Promise((done) => {
     const t0 = performance.now();
     const step = (now) => {
       const k = clamp01((now - t0) / T);
-      const travel = easeInOutCubic(clamp01(k / 0.62));
-      const s = Math.exp(Math.log(S_MAX) * easeInOutSine(k));
-      const dx = (gx - p.x) * travel;
-      const dy = (gy - p.y) * travel;
-      els.stage.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${s})`;
-      els.stage.style.opacity = String(1 - easeInOutSine(clamp01((k - 0.5) / 0.4)));
+      const m1 = Math.exp(L0 + (L1 - L0) * easeInOutSine(k));
+      const travel = easeInOutCubic(clamp01(k / 0.6));
+      const p = { x: p0.x + (gx - p0.x) * travel, y: p0.y + (gy - p0.y) * travel };
+      Zoom.draw(m1, p);
 
-      const grow = far * easeInCubic(clamp01((k - 0.28) / 0.72));
-      const rad = Math.max(r0 * s, grow);
-      Sky.setReveal({
-        x: p.x + dx,
-        y: p.y + dy,
-        rad,
-        z: Math.min(1, rad / R),
-        ring: Math.sin(Math.PI * clamp01((k - 0.05) / 0.9)),
-      });
+      if (kReveal === null && m1 >= M_REVEAL) {
+        kReveal = k;
+        Sky.setReveal({ x: p.x, y: p.y, rad: Zoom.dot3(m1), z: Zoom.dot3(m1) / R, ring: 0 });
+        u.style.opacity = "0";
+        u.classList.add("on", "revealing");
+        u.setAttribute("aria-hidden", "false");
+        Sky.start();
+        Sound.pad();
+      }
+      if (kReveal !== null) {
+        const kr = clamp01((k - kReveal) / (1 - kReveal));
+        const rad = Math.max(Zoom.dot3(m1), far * easeInCubic(kr));
+        Sky.setReveal({ x: p.x, y: p.y, rad, z: Math.min(1, rad / R), ring: Math.sin(Math.PI * kr) });
+        u.style.opacity = String(clamp01(kr / 0.15));
+        Zoom.canvas.style.opacity = String(1 - easeInOutSine(clamp01((kr - 0.55) / 0.4)));
+      }
       if (k < 1) requestAnimationFrame(step);
       else done();
     };
@@ -743,7 +820,9 @@ async function zoomIn() {
   });
 
   Sky.setReveal(null);
-  els.universe.classList.remove("revealing");
+  u.style.opacity = "";
+  u.classList.remove("revealing");
+  Zoom.hide();
   els.scene.classList.add("gone");
   document.body.classList.add("in-space");
   state = "space";
@@ -845,9 +924,7 @@ els.replayBtn.addEventListener("click", async () => {
 
   // el erizo regresa detrás, ya en su lugar
   els.stage.classList.remove("zooming");
-  els.stage.style.transform = "";
-  els.stage.style.opacity = "";
-  els.dot.style.visibility = "";
+  els.hog.style.visibility = "";
   els.hog.classList.remove("ready");
   els.scene.classList.remove("gone");
   document.body.classList.remove("in-space");
@@ -866,6 +943,5 @@ els.replayBtn.addEventListener("click", async () => {
   u.style.transition = "";
   u.style.opacity = "";
   els.count.hidden = true;
-  prepareDot();
   state = "hog";
 });
