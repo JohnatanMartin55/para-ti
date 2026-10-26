@@ -631,11 +631,14 @@ const Sky = (() => {
 const Zoom = (() => {
   const canvas = $("#zoom");
   const ctx = canvas.getContext("2d");
+  // las tres escenas salen del mismo dibujo → encajan exactas
   const IMGS = [
-    { src: "img/erizo-1.webp", dot: [109, 512], rel: 1, bg: [253, 253, 253] },
-    { src: "img/erizo-2.webp", dot: [161, 639], rel: 0.21, bg: [245, 218, 188], feather: 0.08 },
-    { src: "img/erizo-3.webp", dot: [313, 695], rel: 0.0714, bg: [243, 230, 214], feather: 0.1, dotR: 70 },
+    { src: "img/erizo-1.webp", dot: [217.5, 654.4], rel: 1 },
+    { src: "img/erizo-2.webp", dot: [600, 840], rel: 3.75 / 8, feather: 0.06 },
+    { src: "img/erizo-3.webp", dot: [600, 834.8], rel: 3.75 / 26.087, feather: 0.06 },
   ];
+  const DOT_R = 3 * 3.75; // radio del puntito en px de la imagen 1
+  const PAPER = "#fbf6ee";
   let w = 0, h = 0, dpr = 1;
 
   // bordes difuminados para que cada imagen se funda con la anterior
@@ -691,29 +694,35 @@ const Zoom = (() => {
     const t = clamp01((Math.log(m) - Math.log(a)) / (Math.log(b) - Math.log(a)));
     return t * t * (3 - 2 * t);
   };
-  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 
   // m1 = px de pantalla por px de la imagen 1; p = dónde está el "poquito" en pantalla
   function draw(m1, p) {
+    // cada escala entra cuando la anterior empezaría a verse borrosa
     const a = [
-      1 - ss(2.2, 3.0, m1),
-      ss(1.45, 2.2, m1) * (1 - ss(5.6, 7.2, m1)),
-      ss(3.6, 5.6, m1),
+      1 - ss(0.75, 0.95, m1),
+      ss(0.5, 0.75, m1) * (1 - ss(1.75, 2.1, m1)),
+      ss(1.3, 1.75, m1),
     ];
-    const bg = mix(mix(IMGS[0].bg, IMGS[1].bg, 1 - a[0]), IMGS[2].bg, a[2]);
     ctx.globalAlpha = 1;
-    ctx.fillStyle = `rgb(${bg})`;
+    ctx.fillStyle = PAPER;
     ctx.fillRect(0, 0, w, h);
-    IMGS.forEach((o, i) => {
-      if (a[i] < 0.002) return;
+    // como encajan exactas, cada escala se pinta encima de la anterior;
+    // la de abajo solo se ve en los bordes difuminados de la de arriba
+    a[0] = 1;
+    a[1] = ss(0.5, 0.75, m1);
+    const rects = IMGS.map((o) => {
       const m = m1 * o.rel;
-      const x = p.x - o.dot[0] * m;
-      const y = p.y - o.dot[1] * m;
-      const W = o.w * m, H = o.h * m;
-      if (x > w || y > h || x + W < 0 || y + H < 0) return;
-      ctx.globalAlpha = a[i];
-      ctx.drawImage(o.draw, x, y, W, H);
+      return { x: p.x - o.dot[0] * m, y: p.y - o.dot[1] * m, W: o.w * m, H: o.h * m, f: (o.feather || 0) * m };
     });
+    const covers = (r) => r.x + r.W * 0.07 <= 0 && r.y + r.H * 0.07 <= 0 && r.x + r.W * 0.93 >= w && r.y + r.H * 0.93 >= h;
+    let first = 0;
+    for (let i = IMGS.length - 1; i > 0; i--) if (a[i] >= 0.999 && covers(rects[i])) { first = i; break; }
+    for (let i = first; i < IMGS.length; i++) {
+      const r = rects[i];
+      if (a[i] < 0.002 || r.x > w || r.y > h || r.x + r.W < 0 || r.y + r.H < 0) continue;
+      ctx.globalAlpha = a[i];
+      ctx.drawImage(IMGS[i].draw, r.x, r.y, r.W, r.H);
+    }
   }
 
   return {
@@ -723,7 +732,7 @@ const Zoom = (() => {
     hide() { canvas.classList.remove("on"); canvas.style.opacity = ""; },
     draw,
     canvas,
-    dot3(m1) { return IMGS[2].dotR * IMGS[2].rel * m1; },
+    dotR(m1) { return DOT_R * m1; },
   };
 })();
 
@@ -779,14 +788,15 @@ async function zoomIn() {
   const { x: gx, y: gy, R } = Sky.center;
   const { w, h } = Sky.size;
   const far = Math.hypot(Math.max(gx, w - gx), Math.max(gy, h - gy)) / 0.84;
-  const M_REVEAL = 6.3;   // aquí el puntito ya es una galaxia de buen tamaño
-  const M_END = 19;
+  const M_GALAXY = 0.9;  // desde aquí el puntito ya muestra la galaxia viva
+  const M_GROW = 3.4;    // desde aquí la galaxia empieza a crecer
+  const M_END = 10;
   const T = reducedMotion ? 1600 : 6200;
   const L0 = Math.log(m0), L1 = Math.log(M_END);
   const u = els.universe;
 
   Sound.whoosh((T / 1000) * 0.62);
-  let kReveal = null;
+  let kGrow = null, started = false;
 
   await new Promise((done) => {
     const t0 = performance.now();
@@ -796,21 +806,23 @@ async function zoomIn() {
       const travel = easeInOutCubic(clamp01(k / 0.6));
       const p = { x: p0.x + (gx - p0.x) * travel, y: p0.y + (gy - p0.y) * travel };
       Zoom.draw(m1, p);
+      const dotR = Zoom.dotR(m1);
 
-      if (kReveal === null && m1 >= M_REVEAL) {
-        kReveal = k;
-        Sky.setReveal({ x: p.x, y: p.y, rad: Zoom.dot3(m1), z: Zoom.dot3(m1) / R, ring: 0 });
+      if (!started && m1 >= M_GALAXY) {
+        started = true;
+        Sky.setReveal({ x: p.x, y: p.y, rad: dotR, z: dotR / R, ring: 0 });
         u.style.opacity = "0";
         u.classList.add("on", "revealing");
         u.setAttribute("aria-hidden", "false");
         Sky.start();
-        Sound.pad();
       }
-      if (kReveal !== null) {
-        const kr = clamp01((k - kReveal) / (1 - kReveal));
-        const rad = Math.max(Zoom.dot3(m1), far * easeInCubic(kr));
-        Sky.setReveal({ x: p.x, y: p.y, rad, z: Math.min(1, rad / R), ring: Math.sin(Math.PI * kr) });
-        u.style.opacity = String(clamp01(kr / 0.15));
+      if (started) {
+        if (kGrow === null && m1 >= M_GROW) { kGrow = k; Sound.pad(); }
+        const kr = kGrow === null ? 0 : clamp01((k - kGrow) / (1 - kGrow));
+        const rad = Math.max(dotR, far * easeInCubic(kr));
+        const glow = clamp01(Math.log(m1 / M_GALAXY) / Math.log(1.5));
+        Sky.setReveal({ x: p.x, y: p.y, rad, z: Math.min(1, rad / R), ring: Math.max(0.35 * glow, Math.sin(Math.PI * kr)) });
+        u.style.opacity = String(glow);
         Zoom.canvas.style.opacity = String(1 - easeInOutSine(clamp01((kr - 0.55) / 0.4)));
       }
       if (k < 1) requestAnimationFrame(step);
