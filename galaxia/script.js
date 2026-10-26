@@ -36,12 +36,20 @@ const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+const easeInOutSine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const easeInCubic = (x) => x * x * x;
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+
 const els = {
   scene: $("#scene"),
   stage: $("#stage"),
+  hog: $("#hog"),
   hogBtn: $("#hogBtn"),
   zoomBtn: $("#zoomBtn"),
   dot: $("#dot"),
+  dotCircle: $("#dotCircle"),
+  dotClipC: $("#dotClipC"),
   dotImg: $("#dotImg"),
   universe: $("#universe"),
   l1: $(".l1"),
@@ -59,52 +67,6 @@ const els = {
   toast: $("#toast"),
   soundBtn: $("#soundBtn"),
 };
-
-/* =========================================================
-   Púas del erizo con trazos de crayón
-   ========================================================= */
-(function drawSpikes() {
-  const g = $("#spikes");
-  const NS = "http://www.w3.org/2000/svg";
-  const cx = 168, cy = 196, rx = 112, ry = 120;
-  const browns = ["#3f2412", "#5a3519", "#6e4322", "#8a5a30", "#a8743f", "#c08a52"];
-
-  const base = document.createElementNS(NS, "ellipse");
-  base.setAttribute("cx", cx + 6);
-  base.setAttribute("cy", cy);
-  base.setAttribute("rx", rx * 0.86);
-  base.setAttribute("ry", ry * 0.86);
-  base.setAttribute("fill", "#6a3f1f");
-  g.appendChild(base);
-
-  let seed = 7;
-  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-
-  for (let pass = 0; pass < 3; pass++) {
-    const n = 64 + pass * 14;
-    for (let i = 0; i < n; i++) {
-      const t = i / n;
-      const ang = ((-168 + t * 250 + (rnd() - 0.5) * 6) * Math.PI) / 180;
-      const lean = ang + 0.28; // las púas se inclinan hacia atrás
-      const r0 = 0.5 + pass * 0.12 + rnd() * 0.08;
-      const r1 = 0.92 + pass * 0.07 + rnd() * 0.14;
-      const x0 = cx + Math.cos(ang) * rx * r0;
-      const y0 = cy + Math.sin(ang) * ry * r0;
-      const x1 = cx + Math.cos(lean) * rx * r1;
-      const y1 = cy + Math.sin(lean) * ry * r1;
-      const mx = (x0 + x1) / 2 + Math.cos(lean + 1.57) * 4;
-      const my = (y0 + y1) / 2 + Math.sin(lean + 1.57) * 4;
-      const p = document.createElementNS(NS, "path");
-      p.setAttribute("d", `M${x0.toFixed(1)} ${y0.toFixed(1)} Q${mx.toFixed(1)} ${my.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`);
-      p.setAttribute("stroke", browns[Math.floor(rnd() * (pass === 2 ? browns.length : 4))]);
-      p.setAttribute("stroke-width", (2.4 + rnd() * 3.4 - pass * 0.5).toFixed(1));
-      p.setAttribute("stroke-linecap", "round");
-      p.setAttribute("fill", "none");
-      p.setAttribute("opacity", (0.75 + rnd() * 0.25).toFixed(2));
-      g.appendChild(p);
-    }
-  }
-})();
 
 /* =========================================================
    Sonidos (Web Audio, sin archivos)
@@ -194,6 +156,8 @@ els.soundBtn.addEventListener("click", (e) => {
 
 /* =========================================================
    El universo (canvas)
+   La galaxia se dibuja UNA vez en una imagen y luego solo se gira
+   con una transformación → muy liviano incluso en celulares.
    ========================================================= */
 const Sky = (() => {
   const canvas = $("#sky");
@@ -201,42 +165,55 @@ const Sky = (() => {
   const bg = document.createElement("canvas");
   const bgx = bg.getContext("2d");
 
-  let w = 0, h = 0, dpr = 1, cx = 0, cy = 0, R = 0;
-  let buckets = [];
-  let clouds = [];
-  let zoom = 1;
-  const sprites = ["255,200,170", "255,110,170", "150,110,255", "90,120,255"].map((rgb) => {
-    const c = document.createElement("canvas");
-    c.width = c.height = 64;
-    const x = c.getContext("2d");
-    const g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
-    g.addColorStop(0, `rgba(${rgb},1)`);
-    g.addColorStop(0.4, `rgba(${rgb},.35)`);
-    g.addColorStop(1, `rgba(${rgb},0)`);
-    x.fillStyle = g;
-    x.fillRect(0, 0, 64, 64);
-    return c;
-  });
-  let twinklers = [];
-  let sparkles = [];
-  let shooting = [];
-  let userStars = [];
-  let rot = 0, vel = 0, frame = 0, running = false, last = 0;
+  let w = 0, h = 0, dpr = 1, cx = 0, cy = 0, R = 0, S = 0;
+  let dprCap = 2;
+  let diskImg = null, coreImg = null;
+  let bright = [], twinklers = [], sparkles = [], shooting = [], userStars = [];
+  let rot = 0, vel = 0, running = false, last = 0, nextShoot = 0;
+  let reveal = null;
+  const perf = { n: 0, sum: 0, checked: false };
   const TILT = 0.6;
   const PHI = -0.42;
-  const cosP = Math.cos(PHI), sinP = Math.sin(PHI);
 
-  const PALETTE = {
-    core: ["#fff6e0", "#ffe2b0", "#ffd08a"],
-    mid: ["#ffc2a8", "#ff9fb8", "#f58fc8"],
-    outer: ["#a58af5", "#7f86f0", "#c49cf7", "#6bb6ff"],
-    clump: ["#ff6fa8", "#ff8fd0"],
+  /* ---------- sprites (gradientes pre-dibujados) ---------- */
+  function sprite(stops, size = 128) {
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const x = c.getContext("2d");
+    const g = x.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    stops.forEach(([o, col]) => g.addColorStop(o, col));
+    x.fillStyle = g;
+    x.fillRect(0, 0, size, size);
+    return c;
+  }
+  const gas = (rgb) => sprite([[0, `rgba(${rgb},1)`], [0.4, `rgba(${rgb},.35)`], [1, `rgba(${rgb},0)`]], 64);
+  const SPR = {
+    gas: ["255,200,170", "255,110,170", "150,110,255", "90,120,255"].map(gas),
+    halo: sprite([[0, "rgba(190,130,255,.32)"], [0.45, "rgba(120,80,220,.14)"], [0.8, "rgba(80,60,200,.06)"], [1, "rgba(0,0,0,0)"]]),
+    core: sprite([[0, "rgba(255,250,235,1)"], [0.15, "rgba(255,226,180,.8)"], [0.45, "rgba(255,150,150,.22)"], [1, "rgba(0,0,0,0)"]], 256),
+    glowWarm: sprite([[0, "rgba(255,226,166,.9)"], [1, "rgba(255,226,166,0)"]], 64),
+    glowCool: sprite([[0, "rgba(207,224,255,.9)"], [1, "rgba(207,224,255,0)"]], 64),
+    glowPink: sprite([[0, "rgba(255,214,230,.6)"], [1, "rgba(255,214,230,0)"]], 64),
   };
 
+  function starPath(c, x, y, s) {
+    c.beginPath();
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2;
+      c.lineTo(x + Math.cos(a) * s, y + Math.sin(a) * s);
+      c.lineTo(x + Math.cos(a + Math.PI / 4) * s * 0.16, y + Math.sin(a + Math.PI / 4) * s * 0.16);
+    }
+    c.closePath();
+  }
+
+  /* ---------- tamaño ---------- */
   function size() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
     w = window.innerWidth;
     h = window.innerHeight;
+    dpr = Math.min(window.devicePixelRatio || 1, dprCap);
+    // pantallas enormes: limitamos los píxeles totales
+    const maxPx = 4.2e6;
+    if (w * h * dpr * dpr > maxPx) dpr = Math.max(0.75, Math.sqrt(maxPx / (w * h)));
     canvas.width = bg.width = Math.round(w * dpr);
     canvas.height = bg.height = Math.round(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -244,86 +221,79 @@ const Sky = (() => {
     cx = w / 2;
     cy = h * (w < 700 ? 0.53 : 0.52);
     R = Math.min(w, h) * (w < 700 ? 0.46 : 0.4);
+    S = R * 1.2;
   }
 
-  function build() {
-    size();
-    const N = w * h < 600000 ? 6000 : 9500;
-    const map = new Map();
-    const push = (color, p) => {
-      if (!map.has(color)) map.set(color, []);
-      map.get(color).push(p);
+  /* ---------- galaxia pre-dibujada (vista de frente) ---------- */
+  function buildGalaxy() {
+    const px = Math.ceil(S * 2 * dpr);
+    const mk = () => {
+      const c = document.createElement("canvas");
+      c.width = c.height = px;
+      const x = c.getContext("2d");
+      x.setTransform(dpr, 0, 0, dpr, S * dpr, S * dpr);
+      x.globalCompositeOperation = "lighter";
+      return [c, x];
     };
+    const [dc, d] = mk();
+    const [cc, c] = mk();
+
+    // nubes de gas a lo largo de los brazos
+    const cloudN = w < 700 ? 120 : 170;
+    for (let i = 0; i < cloudN; i++) {
+      const r = 0.12 + Math.pow(Math.random(), 0.8) * 0.9;
+      const th = (Math.random() < 0.5 ? 0 : Math.PI) + r * 4.4 + gauss() * 0.3;
+      const s = R * rand(0.07, 0.16) * (1.1 - r * 0.4);
+      const k = r < 0.3 ? 0 : Math.random() < 0.3 ? 1 : Math.random() < 0.6 ? 2 : 3;
+      d.globalAlpha = rand(0.18, 0.4);
+      d.drawImage(SPR.gas[k], Math.cos(th) * r * R - s, Math.sin(th) * r * R - s, s * 2, s * 2);
+    }
+
+    const PAL = {
+      core: ["#fff6e0", "#ffe2b0", "#ffd08a"],
+      mid: ["#ffc2a8", "#ff9fb8", "#f58fc8"],
+      outer: ["#a58af5", "#7f86f0", "#c49cf7", "#6bb6ff"],
+      clump: ["#ff6fa8", "#ff8fd0"],
+    };
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    const N = w < 700 ? 9000 : 14000;
+    bright = [];
     for (let i = 0; i < N; i++) {
       const kind = Math.random();
       const halo = kind < 0.14;
       const core = !halo && kind < 0.36;
-      const r = halo ? Math.pow(Math.random(), 0.6) * 1.08 : core ? Math.pow(Math.random(), 2.2) * 0.32 : 0.06 + Math.pow(Math.random(), 0.85) * 0.96;
-      const arm = Math.random() < 0.5 ? 0 : Math.PI;
-      const th = halo || core ? Math.random() * Math.PI * 2 : arm + r * 4.4 + gauss() * (0.38 + 0.25 * (1 - r));
+      const r = halo ? Math.pow(Math.random(), 0.6) * 1.08
+        : core ? Math.pow(Math.random(), 2.2) * 0.32
+        : 0.06 + Math.pow(Math.random(), 0.85) * 0.96;
+      const th = halo || core ? Math.random() * Math.PI * 2
+        : (Math.random() < 0.5 ? 0 : Math.PI) + r * 4.4 + gauss() * (0.38 + 0.25 * (1 - r));
       const rr = Math.max(0.005, r + gauss() * (halo || core ? 0.02 : 0.055));
-      let color;
       const k = Math.random();
-      if (rr < 0.16) color = PALETTE.core[Math.floor(k * 3)];
-      else if (rr < 0.42) color = k < 0.1 ? PALETTE.clump[Math.floor(Math.random() * 2)] : PALETTE.mid[Math.floor(Math.random() * 3)];
-      else color = k < 0.06 ? PALETTE.clump[Math.floor(Math.random() * 2)] : PALETTE.outer[Math.floor(Math.random() * 4)];
-      push(color, {
-        r: rr,
-        th,
-        s: rr < 0.16 ? rand(0.9, 2) : Math.random() < 0.06 ? rand(1.8, 2.6) : rand(0.6, 1.5),
-        a: halo ? rand(0.12, 0.4) : rand(0.3, 0.95),
-        tw: Math.random() * 6.28,
-      });
+      const color = rr < 0.16 ? pick(PAL.core)
+        : rr < 0.42 ? (k < 0.1 ? pick(PAL.clump) : pick(PAL.mid))
+        : (k < 0.06 ? pick(PAL.clump) : pick(PAL.outer));
+      const x = Math.cos(th) * rr * R;
+      const y = Math.sin(th) * rr * R;
+      const sz = rr < 0.16 ? rand(0.9, 2) : Math.random() < 0.06 ? rand(1.8, 2.6) : rand(0.6, 1.5);
+      const a = halo ? rand(0.12, 0.4) : rand(0.3, 0.95);
+      const ctxT = core ? c : d;
+      ctxT.globalAlpha = a;
+      ctxT.fillStyle = color;
+      ctxT.fillRect(x, y, sz, sz);
+      // unas cuantas titilan en vivo
+      if (!core && !halo && Math.random() < 0.022) bright.push({ x, y, s: sz + 0.6, a: rand(0.6, 1), ph: Math.random() * 6.28, c: color });
     }
-    buckets = [...map.entries()].map(([color, parts]) => ({ color, parts }));
-
-    // nubes de gas a lo largo de los brazos
-    clouds = [];
-    const cloudN = w < 700 ? 110 : 160;
-    for (let i = 0; i < cloudN; i++) {
-      const r = 0.12 + Math.pow(Math.random(), 0.8) * 0.9;
-      const arm = Math.random() < 0.5 ? 0 : Math.PI;
-      clouds.push({
-        r,
-        th: arm + r * 4.4 + gauss() * 0.3,
-        s: R * rand(0.07, 0.16) * (1.1 - r * 0.4),
-        a: rand(0.18, 0.4),
-        sprite: r < 0.3 ? 0 : Math.random() < 0.3 ? 1 : Math.random() < 0.6 ? 2 : 3,
-      });
-    }
-    buildBackground();
+    diskImg = dc;
+    coreImg = cc;
   }
 
-  function sparkle(c, x, y, s, color, alpha) {
-    c.save();
-    c.globalAlpha = alpha;
-    c.translate(x, y);
-    c.fillStyle = color;
-    c.beginPath();
-    for (let i = 0; i < 4; i++) {
-      const a = (i * Math.PI) / 2;
-      c.lineTo(Math.cos(a) * s, Math.sin(a) * s);
-      c.lineTo(Math.cos(a + Math.PI / 4) * s * 0.16, Math.sin(a + Math.PI / 4) * s * 0.16);
-    }
-    c.closePath();
-    c.fill();
-    const g = c.createRadialGradient(0, 0, 0, 0, 0, s * 0.9);
-    g.addColorStop(0, color);
-    g.addColorStop(1, "rgba(0,0,0,0)");
-    c.globalAlpha = alpha * 0.5;
-    c.fillStyle = g;
-    c.beginPath();
-    c.arc(0, 0, s * 0.9, 0, Math.PI * 2);
-    c.fill();
-    c.restore();
-  }
-
+  /* ---------- fondo: nebulosas, estrellas fijas, galaxias lejanas ---------- */
   function buildBackground() {
     const c = bgx;
     c.globalCompositeOperation = "source-over";
+    c.globalAlpha = 1;
     c.fillStyle = "#05040f";
     c.fillRect(0, 0, w, h);
-    // nebulosas
     [
       [0.2, 0.25, 0.55, "rgba(120,60,200,.16)"],
       [0.85, 0.7, 0.5, "rgba(230,80,150,.11)"],
@@ -336,7 +306,6 @@ const Sky = (() => {
       c.fillStyle = g;
       c.fillRect(0, 0, w, h);
     });
-    // estrellitas fijas
     c.globalCompositeOperation = "lighter";
     const n = Math.round((w * h) / 2200);
     for (let i = 0; i < n; i++) {
@@ -345,10 +314,9 @@ const Sky = (() => {
       const s = Math.random() < 0.92 ? rand(0.4, 1) : rand(1, 1.8);
       c.fillRect(rand(0, w), rand(0, h), s, s);
     }
-    // galaxias lejanas
     for (let i = 0; i < 6; i++) {
-      let x, y;
-      do { x = rand(0, w); y = rand(0, h); } while (Math.hypot(x - cx, (y - cy) / 0.8) < R * 1.25);
+      let x, y, tries = 0;
+      do { x = rand(0, w); y = rand(0, h); } while (Math.hypot(x - cx, (y - cy) / 0.8) < R * 1.25 && ++tries < 40);
       const s = rand(10, 26);
       c.save();
       c.translate(x, y);
@@ -369,134 +337,142 @@ const Sky = (() => {
     c.globalCompositeOperation = "source-over";
 
     twinklers = Array.from({ length: Math.round((w * h) / 9000) }, () => ({
-      x: rand(0, w), y: rand(0, h), s: rand(0.8, 1.8), ph: Math.random() * 6.28, sp: rand(0.02, 0.06),
+      x: rand(0, w), y: rand(0, h), s: rand(0.8, 1.8), ph: Math.random() * 6.28, sp: rand(0.0012, 0.0035),
     }));
     sparkles = Array.from({ length: w < 700 ? 9 : 14 }, () => {
-      let x, y;
-      do { x = rand(0, w); y = rand(0, h); } while (Math.hypot(x - cx, y - cy) < R * 0.5);
-      return { x, y, s: rand(5, 11), ph: Math.random() * 6.28, color: Math.random() < 0.7 ? "#ffe2a6" : "#cfe0ff" };
+      let x, y, tries = 0;
+      do { x = rand(0, w); y = rand(0, h); } while (Math.hypot(x - cx, y - cy) < R * 0.5 && ++tries < 40);
+      const warm = Math.random() < 0.7;
+      return { x, y, s: rand(5, 11), ph: Math.random() * 6.28, color: warm ? "#ffe2a6" : "#cfe0ff", glow: warm ? SPR.glowWarm : SPR.glowCool };
     });
   }
 
-  function project(r, a) {
-    const x = Math.cos(a) * r * R;
-    const y = Math.sin(a) * r * R * TILT;
-    return [cx + x * cosP - y * sinP, cy + x * sinP + y * cosP];
+  function build() {
+    size();
+    buildGalaxy();
+    buildBackground();
   }
 
+  /* ---------- dibujo de cada cuadro ---------- */
   function drawGalaxy(t) {
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-
-    // halo
-    ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(PHI);
     ctx.scale(1, TILT);
-    let g = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 1.15);
-    g.addColorStop(0, "rgba(190,130,255,.32)");
-    g.addColorStop(0.45, "rgba(120,80,220,.14)");
-    g.addColorStop(0.8, "rgba(80,60,200,.06)");
-    g.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, R * 1.15, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
-    // nubes
-    for (const c of clouds) {
-      const a = c.th + rot * (1 + 0.5 * (1 - c.r));
-      const x0 = Math.cos(a) * c.r * R;
-      const y0 = Math.sin(a) * c.r * R * TILT;
-      const x = cx + x0 * cosP - y0 * sinP;
-      const y = cy + x0 * sinP + y0 * cosP;
-      ctx.globalAlpha = c.a;
-      ctx.drawImage(sprites[c.sprite], x - c.s, y - c.s, c.s * 2, c.s * 2);
-    }
-
-    // estrellas de la galaxia
-    for (const b of buckets) {
-      ctx.fillStyle = b.color;
-      for (const p of b.parts) {
-        const a = p.th + rot * (1 + 0.5 * (1 - p.r));
-        const x0 = Math.cos(a) * p.r * R;
-        const y0 = Math.sin(a) * p.r * R * TILT;
-        const x = cx + x0 * cosP - y0 * sinP;
-        const y = cy + x0 * sinP + y0 * cosP;
-        ctx.globalAlpha = p.a * (0.75 + 0.25 * Math.sin(t * 0.002 + p.tw));
-        ctx.fillRect(x, y, p.s, p.s);
-      }
-    }
-
-    // núcleo brillante
     ctx.globalAlpha = 1;
+    ctx.drawImage(SPR.halo, -R * 1.15, -R * 1.15, R * 2.3, R * 2.3);
+
     ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(PHI);
-    ctx.scale(1, TILT * 1.1);
-    const pulse = 1 + 0.03 * Math.sin(t * 0.0015);
-    g = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.36 * pulse);
-    g.addColorStop(0, "rgba(255,250,235,1)");
-    g.addColorStop(0.15, "rgba(255,226,180,.8)");
-    g.addColorStop(0.45, "rgba(255,150,150,.22)");
-    g.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, R * 0.36 * pulse, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.rotate(rot);
+    ctx.drawImage(diskImg, -S, -S, S * 2, S * 2);
+    for (const b of bright) {
+      ctx.globalAlpha = b.a * Math.abs(Math.sin(t * 0.0016 + b.ph));
+      ctx.fillStyle = b.c;
+      ctx.fillRect(b.x, b.y, b.s, b.s / TILT);
+    }
     ctx.restore();
+
+    ctx.save();
+    ctx.rotate(rot * 1.4);
+    ctx.globalAlpha = 1;
+    ctx.drawImage(coreImg, -S, -S, S * 2, S * 2);
+    ctx.restore();
+
+    const pulse = R * 0.36 * (1 + 0.03 * Math.sin(t * 0.0015));
+    ctx.scale(1, 1.1);
+    ctx.drawImage(SPR.core, -pulse, -pulse, pulse * 2, pulse * 2);
     ctx.restore();
   }
 
-  function drawFrame(t) {
+  function drawWorld(t) {
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
-    ctx.fillStyle = "#05040f";
-    ctx.fillRect(0, 0, w, h);
-    ctx.save();
-    if (zoom !== 1) {
-      ctx.translate(cx, cy);
-      ctx.scale(zoom, zoom);
-      ctx.translate(-cx, -cy);
-    }
     ctx.drawImage(bg, 0, 0, w, h);
 
-    // titileo
     ctx.globalCompositeOperation = "lighter";
     ctx.fillStyle = "#fff";
     for (const s of twinklers) {
-      s.ph += s.sp;
-      ctx.globalAlpha = 0.25 + 0.75 * Math.abs(Math.sin(s.ph));
+      ctx.globalAlpha = 0.25 + 0.75 * Math.abs(Math.sin(t * s.sp + s.ph));
       ctx.fillRect(s.x, s.y, s.s, s.s);
     }
     for (const s of sparkles) {
       const k = 0.6 + 0.4 * Math.sin(t * 0.0018 + s.ph);
-      sparkle(ctx, s.x, s.y, s.s * k, s.color, 0.85 * k);
+      const g = s.s * k * 1.8;
+      ctx.globalAlpha = 0.45 * k;
+      ctx.drawImage(s.glow, s.x - g, s.y - g, g * 2, g * 2);
+      ctx.globalAlpha = 0.85 * k;
+      ctx.fillStyle = s.color;
+      starPath(ctx, s.x, s.y, s.s * k);
+      ctx.fill();
     }
-
     drawGalaxy(t);
-    ctx.restore();
+  }
+
+  function drawFrame(t) {
+    if (reveal) {
+      // la galaxia vive dentro del "poquito" y crece hasta llenar la pantalla
+      const { x, y, rad, z, ring } = reveal;
+      const fe = Math.max(1.5, rad * 0.16);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.clearRect(0, 0, w, h);
+      ctx.save();
+      // solo se dibuja lo que cabe dentro del círculo
+      ctx.beginPath();
+      ctx.arc(x, y, rad, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.translate(x, y);
+      ctx.scale(z, z);
+      ctx.translate(-cx, -cy);
+      ctx.fillStyle = "#05040f";
+      ctx.fillRect(-w * 4, -h * 4, w * 9, h * 9);
+      drawWorld(t);
+      ctx.restore();
+
+      // borde suave: se difumina solo el anillo del borde
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.globalAlpha = 1;
+      const m = ctx.createRadialGradient(x, y, Math.max(0, rad - fe), x, y, rad);
+      m.addColorStop(0, "rgba(0,0,0,0)");
+      m.addColorStop(1, "#000");
+      ctx.fillStyle = m;
+      const bx = Math.max(0, x - rad), by = Math.max(0, y - rad);
+      ctx.fillRect(bx, by, Math.min(w, x + rad) - bx, Math.min(h, y + rad) - by);
+
+      // halo de luz alrededor
+      if (ring > 0.01) {
+        ctx.globalCompositeOperation = "source-over";
+        const r0 = Math.max(0, rad - fe * 1.4), r1 = rad + fe * 2.2 + 6;
+        const g = ctx.createRadialGradient(x, y, r0, x, y, r1);
+        g.addColorStop(0, "rgba(255,225,240,0)");
+        g.addColorStop(0.45, `rgba(255,214,236,${0.55 * ring})`);
+        g.addColorStop(0.7, `rgba(205,180,255,${0.25 * ring})`);
+        g.addColorStop(1, "rgba(205,180,255,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(x - r1, y - r1, r1 * 2, r1 * 2);
+      }
+      return;
+    }
+    drawWorld(t);
     drawUserStars(t);
     drawShooting();
   }
 
-  /* ----- estrellas que pone ella ----- */
+  /* ---------- estrellas que pone ella ---------- */
   function drawUserStars(t) {
     if (!userStars.length) return;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    // líneas de la constelación
     ctx.lineWidth = 1.2;
     ctx.lineCap = "round";
+    ctx.strokeStyle = "#ffd6e6";
+    ctx.setLineDash([3, 5]);
     for (let i = 1; i < userStars.length; i++) {
       const a = userStars[i - 1], b = userStars[i];
       const k = Math.min(1, (t - b.born) / 900);
       if (k <= 0) continue;
       const ax = a.x * w, ay = a.y * h, bx = b.x * w, by = b.y * h;
       ctx.globalAlpha = 0.35;
-      ctx.strokeStyle = "#ffd6e6";
-      ctx.setLineDash([3, 5]);
       ctx.beginPath();
       ctx.moveTo(ax, ay);
       ctx.lineTo(ax + (bx - ax) * k, ay + (by - ay) * k);
@@ -509,15 +485,12 @@ const Sky = (() => {
       const boom = age < 500 ? 1 + (1 - intro) * 2 : 1;
       const k = 0.8 + 0.2 * Math.sin(t * 0.003 + s.ph);
       const x = s.x * w, y = s.y * h;
-      const halo = ctx.createRadialGradient(x, y, 0, x, y, 26 * boom);
-      halo.addColorStop(0, "rgba(255,214,230,.55)");
-      halo.addColorStop(1, "rgba(0,0,0,0)");
+      const g = 26 * boom;
       ctx.globalAlpha = intro;
-      ctx.fillStyle = halo;
-      ctx.beginPath();
-      ctx.arc(x, y, 26 * boom, 0, Math.PI * 2);
+      ctx.drawImage(SPR.glowPink, x - g, y - g, g * 2, g * 2);
+      ctx.fillStyle = s.color;
+      starPath(ctx, x, y, 11 * k * boom);
       ctx.fill();
-      sparkle(ctx, x, y, 11 * k * boom, s.color, intro);
     }
     ctx.restore();
   }
@@ -530,7 +503,7 @@ const Sky = (() => {
     return userStars.length;
   }
 
-  /* ----- estrellas fugaces ----- */
+  /* ---------- estrellas fugaces ---------- */
   function spawnShooting() {
     const fromLeft = Math.random() < 0.5;
     const speed = rand(9, 14);
@@ -544,9 +517,11 @@ const Sky = (() => {
     });
   }
   function drawShooting() {
+    if (!shooting.length) return;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     ctx.lineCap = "round";
+    ctx.lineWidth = 2;
     for (let i = shooting.length - 1; i >= 0; i--) {
       const s = shooting[i];
       s.x += s.vx; s.y += s.vy; s.life -= 0.012;
@@ -556,7 +531,6 @@ const Sky = (() => {
       g.addColorStop(0, `rgba(255,255,255,${s.life})`);
       g.addColorStop(1, "rgba(255,200,230,0)");
       ctx.strokeStyle = g;
-      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(s.x, s.y);
       ctx.lineTo(tx, ty);
@@ -565,24 +539,35 @@ const Sky = (() => {
     ctx.restore();
   }
 
-  /* ----- bucle ----- */
-  let nextShoot = 0;
+  /* ---------- bucle ---------- */
   function loop(t) {
     if (!running) return;
     const dt = last ? Math.min(50, t - last) : 16;
     last = t;
     rot += (0.00018 + vel) * (dt / 16);
-    vel *= 0.95;
-    if (t > nextShoot && !reducedMotion) {
+    vel *= Math.pow(0.95, dt / 16);
+    if (!reveal && t > nextShoot && !reducedMotion) {
       spawnShooting();
       nextShoot = t + rand(3500, 7500);
     }
     drawFrame(t);
-    frame++;
+
+    // si el celular sufre, bajamos la resolución una vez
+    if (!reveal && !perf.checked && !document.hidden) {
+      perf.n++;
+      perf.sum += dt;
+      if (perf.n === 90) {
+        perf.checked = true;
+        if (perf.sum / perf.n > 24 && dprCap > 1) {
+          dprCap = 1;
+          build();
+        }
+      }
+    }
     requestAnimationFrame(loop);
   }
 
-  /* ----- interacción: arrastrar = girar, tocar = estrella ----- */
+  /* ---------- interacción ---------- */
   let down = null;
   canvas.addEventListener("pointerdown", (e) => {
     down = { x: e.clientX, y: e.clientY, lx: e.clientX, t: performance.now() };
@@ -593,18 +578,18 @@ const Sky = (() => {
     down.lx = e.clientX;
     vel += dx * 0.00012 * (e.clientY < cy ? 1 : -1);
   });
-  const up = (e) => {
+  canvas.addEventListener("pointerup", (e) => {
     if (!down) return;
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
     const quick = performance.now() - down.t < 450;
     down = null;
     if (moved < 10 && quick) canvas.dispatchEvent(new CustomEvent("tapstar", { detail: { x: e.clientX, y: e.clientY } }));
-  };
-  canvas.addEventListener("pointerup", up);
+  });
   canvas.addEventListener("pointercancel", () => (down = null));
 
   let resizeTimer;
   window.addEventListener("resize", () => {
+    if (reveal) return;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       build();
@@ -616,54 +601,73 @@ const Sky = (() => {
     canvas,
     build,
     get center() { return { x: cx, y: cy, R }; },
+    get size() { return { w, h }; },
     snapshot(px = 360) {
-      // dibuja un cuadro y recorta la galaxia para meterla entre los deditos
       drawFrame(performance.now());
       const out = document.createElement("canvas");
       out.width = out.height = px;
-      const o = out.getContext("2d");
-      o.drawImage(canvas, (cx - R) * dpr, (cy - R) * dpr, 2 * R * dpr, 2 * R * dpr, 0, 0, px, px);
+      out.getContext("2d").drawImage(canvas, (cx - R) * dpr, (cy - R) * dpr, 2 * R * dpr, 2 * R * dpr, 0, 0, px, px);
       return out.toDataURL("image/jpeg", 0.9);
     },
-    start() { if (!running) { running = true; last = 0; nextShoot = performance.now() + 2500; requestAnimationFrame(loop); } },
+    setReveal(r) { reveal = r; },
+    start() {
+      if (running) return;
+      running = true;
+      last = 0;
+      nextShoot = performance.now() + 2500;
+      perf.n = perf.sum = 0;
+      requestAnimationFrame(loop);
+    },
     stop() { running = false; },
     addStar,
-    // la galaxia crece desde el punto (radio dotR) hasta llenar la pantalla
-    reveal(el, dotR, ms) {
-      return new Promise((res) => {
-        const t0 = performance.now();
-        const full = Math.hypot(w, h);
-        const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-        const step = (t) => {
-          const k = Math.min(1, (t - t0) / ms);
-          const e = ease(k);
-          zoom = dotR / R + (1 - dotR / R) * e;
-          const rad = dotR + (full - dotR) * Math.pow(e, 1.6);
-          el.style.clipPath = `circle(${rad.toFixed(1)}px at ${cx}px ${cy}px)`;
-          if (k < 1) requestAnimationFrame(step);
-          else { zoom = 1; el.style.clipPath = "none"; res(); }
-        };
-        requestAnimationFrame(step);
-      });
-    },
-    clearStars() { userStars = []; },
+    clearStars() { userStars = []; shooting = []; },
     shoot: spawnShooting,
   };
 })();
 
 /* =========================================================
-   Preparar la galaxia diminuta entre los dedos
+   Preparar el erizo y la galaxia diminuta entre sus deditos
    ========================================================= */
+let state = "loading"; // loading → hog → zooming → space
+let hogWidth = 0;
+
+function placeDot() {
+  const { x, y, r } = Hog.DOT;
+  for (const el of [els.dotCircle, els.dotClipC]) {
+    el.setAttribute("cx", x);
+    el.setAttribute("cy", y);
+    el.setAttribute("r", r);
+  }
+  Object.entries({ x: x - r, y: y - r, width: r * 2, height: r * 2 }).forEach(([k, v]) => els.dotImg.setAttribute(k, v));
+}
+
 function prepareDot() {
   Sky.build();
   els.dotImg.setAttribute("href", Sky.snapshot());
 }
-prepareDot();
-let dotTimer;
+
+async function init() {
+  placeDot();
+  prepareDot();
+  hogWidth = els.hogBtn.getBoundingClientRect().width;
+  await Hog.render({ body: $("#imgBody"), arm: $("#imgArm"), marks: $("#imgMarks") }, hogWidth);
+  els.hog.classList.add("ready");
+  state = "hog";
+}
+init();
+
+let resizeTimer;
 window.addEventListener("resize", () => {
   if (state !== "hog") return;
-  clearTimeout(dotTimer);
-  dotTimer = setTimeout(prepareDot, 250);
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(async () => {
+    prepareDot();
+    const wNow = els.hogBtn.getBoundingClientRect().width;
+    if (wNow > hogWidth * 1.3) {
+      hogWidth = wNow;
+      await Hog.render({ body: $("#imgBody"), arm: $("#imgArm"), marks: $("#imgMarks") }, hogWidth);
+    }
+  }, 300);
 });
 
 /* =========================================================
@@ -678,66 +682,77 @@ function toast(msg, ms = 3200) {
 }
 
 /* =========================================================
-   El zoom: del "poquito" al universo
+   La transición: un solo movimiento continuo
+   1. la cámara viaja hacia el espacio entre los deditos
+   2. el puntito (que ya es una galaxia viva) crece con un halo de luz
+   3. la galaxia llena la pantalla y el erizo se desvanece detrás
    ========================================================= */
-let state = "hog"; // hog → zooming → space
-const transitionEnd = (el, prop, fallback) =>
-  new Promise((res) => {
-    const done = (e) => {
-      if (e && e.target !== el) return;
-      if (e && prop && e.propertyName !== prop) return;
-      el.removeEventListener("transitionend", done);
-      clearTimeout(tm);
-      res();
-    };
-    const tm = setTimeout(done, fallback);
-    el.addEventListener("transitionend", done);
-  });
-
 async function zoomIn() {
   if (state !== "hog") return;
   state = "zooming";
-  Sound.whoosh(reducedMotion ? 0.6 : 2.3);
-  if (navigator.vibrate) navigator.vibrate(20);
-
-  // 1) acercarnos al espacio entre los deditos
-  const r0 = els.dot.getBoundingClientRect();
-  const px = r0.left + r0.width / 2;
-  const py = r0.top + r0.height / 2;
-  const { x: gx, y: gy, R } = Sky.center;
-  const targetR = Math.min(innerWidth, innerHeight) * 0.11;
-  const s = targetR / (r0.width / 2);
-
-  els.stage.style.transformOrigin = `${px}px ${py}px`;
   els.stage.classList.add("zooming");
-  if (reducedMotion) els.stage.style.transition = "transform .5s ease";
-  requestAnimationFrame(() => {
-    els.stage.style.transform = `translate(${gx - px}px, ${gy - py}px) scale(${s})`;
-  });
-  await transitionEnd(els.stage, "transform", reducedMotion ? 700 : 2600);
+  if (navigator.vibrate) navigator.vibrate(15);
 
-  // 2) la galaxia sale del punto y llena la pantalla
-  const r1 = els.dot.getBoundingClientRect();
-  const dotR = r1.width / 2;
-  const u = els.universe;
-  u.style.transition = "none";
-  u.style.clipPath = `circle(${dotR}px at ${gx}px ${gy}px)`;
-  u.classList.add("on");
-  u.setAttribute("aria-hidden", "false");
+  await new Promise(requestAnimationFrame); // animaciones en pausa antes de medir
+  const box = els.dotCircle.getBoundingClientRect();
+  const p = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  const r0 = box.width / 2;
+  const { x: gx, y: gy, R } = Sky.center;
+  const { w, h } = Sky.size;
+  const far = Math.hypot(Math.max(gx, w - gx), Math.max(gy, h - gy)) / 0.84;
+
+  const T = reducedMotion ? 1100 : 3900;
+  const S_MAX = 18;
+
+  // la galaxia del canvas toma el lugar exacto del puntito
+  Sky.setReveal({ x: p.x, y: p.y, rad: r0, z: r0 / R, ring: 0 });
+  els.universe.classList.add("on", "revealing");
+  els.universe.setAttribute("aria-hidden", "false");
   Sky.start();
-  Sound.pad();
-  await Sky.reveal(u, dotR, reducedMotion ? 500 : 2200);
+  await new Promise(requestAnimationFrame);
+  els.dot.style.visibility = "hidden";
+
+  els.stage.style.transformOrigin = `${p.x}px ${p.y}px`;
+  Sound.whoosh((T / 1000) * 0.8);
+  setTimeout(() => Sound.pad(), T * 0.5);
+
+  await new Promise((done) => {
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = clamp01((now - t0) / T);
+      const travel = easeInOutCubic(clamp01(k / 0.62));
+      const s = Math.exp(Math.log(S_MAX) * easeInOutSine(k));
+      const dx = (gx - p.x) * travel;
+      const dy = (gy - p.y) * travel;
+      els.stage.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${s})`;
+      els.stage.style.opacity = String(1 - easeInOutSine(clamp01((k - 0.5) / 0.4)));
+
+      const grow = far * easeInCubic(clamp01((k - 0.28) / 0.72));
+      const rad = Math.max(r0 * s, grow);
+      Sky.setReveal({
+        x: p.x + dx,
+        y: p.y + dy,
+        rad,
+        z: Math.min(1, rad / R),
+        ring: Math.sin(Math.PI * clamp01((k - 0.05) / 0.9)),
+      });
+      if (k < 1) requestAnimationFrame(step);
+      else done();
+    };
+    requestAnimationFrame(step);
+  });
+
+  Sky.setReveal(null);
+  els.universe.classList.remove("revealing");
   els.scene.classList.add("gone");
   document.body.classList.add("in-space");
   state = "space";
-
-  // 3) los mensajes
   await runText();
 }
 
 async function runText() {
   const fast = reducedMotion;
-  await sleep(fast ? 100 : 300);
+  await sleep(fast ? 100 : 200);
   els.l1.classList.add("show");
   await sleep(fast ? 1500 : 3200);
   if (state !== "space") return;
@@ -823,30 +838,34 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !els.let
    Volver al erizo
    ========================================================= */
 els.replayBtn.addEventListener("click", async () => {
-  state = "hog";
+  if (state !== "space") return;
+  state = "leaving";
   const u = els.universe;
-  u.style.transition = "opacity .6s ease";
-  u.style.opacity = "0";
+  [els.l1, els.l2, els.l3, els.hint, els.actions].forEach((el) => el.classList.remove("show"));
+
+  // el erizo regresa detrás, ya en su lugar
+  els.stage.classList.remove("zooming");
+  els.stage.style.transform = "";
+  els.stage.style.opacity = "";
+  els.dot.style.visibility = "";
+  els.hog.classList.remove("ready");
   els.scene.classList.remove("gone");
   document.body.classList.remove("in-space");
 
-  // el erizo vuelve sin animación de zoom
-  els.stage.classList.remove("zooming");
-  els.stage.style.transition = "none";
-  els.stage.style.transform = "none";
-  void els.stage.offsetWidth;
-  els.stage.style.transition = "";
+  u.style.transition = "opacity .7s ease";
+  u.style.opacity = "0";
+  await sleep(250);
+  els.hog.classList.add("ready");
+  await sleep(500);
 
-  await sleep(650);
   Sky.stop();
   Sky.clearStars();
   named = false;
   u.classList.remove("on");
   u.setAttribute("aria-hidden", "true");
-  u.style.transition = "none";
+  u.style.transition = "";
   u.style.opacity = "";
-  u.style.clipPath = "";
-  [els.l1, els.l2, els.l3, els.hint, els.actions].forEach((el) => el.classList.remove("show"));
   els.count.hidden = true;
   prepareDot();
+  state = "hog";
 });

@@ -22,94 +22,26 @@
       <h1 class="poquito" id="poquito">Te extraño<br />poquito…</h1>
 
       <button class="hog-btn" id="hogBtn" type="button" aria-label="Mirar de cerca entre sus deditos">
-        <svg id="hog" viewBox="0 0 300 330" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <defs>
-            <filter id="crayon" x="-10%" y="-10%" width="120%" height="120%">
-              <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="4" result="n" />
-              <feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G" />
-            </filter>
-            <filter id="grain" x="0" y="0" width="100%" height="100%">
-              <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="1" seed="9" result="g" />
-              <feColorMatrix in="g" type="matrix" values="0 0 0 0 0.55  0 0 0 0 0.38  0 0 0 0 0.25  0 0 0 -1.4 1.05" result="gm" />
-              <feComposite in="gm" in2="SourceGraphic" operator="in" result="gc" />
-              <feBlend in="SourceGraphic" in2="gc" mode="multiply" />
-            </filter>
-            <radialGradient id="blushG">
-              <stop offset="0" stop-color="#f4919a" stop-opacity=".85" />
-              <stop offset="1" stop-color="#f4919a" stop-opacity="0" />
-            </radialGradient>
-            <clipPath id="dotClip"><circle cx="49" cy="160" r="3.4" /></clipPath>
-          </defs>
-
-          <g class="hog-body">
-            <!-- púas (las genera script.js) -->
-            <g id="spikes" filter="url(#crayon)"></g>
-
-            <!-- orejita -->
-            <g filter="url(#crayon)">
-              <circle cx="196" cy="104" r="17" fill="#f6d9b2" stroke="#3b2414" stroke-width="4" />
-              <circle cx="197" cy="105" r="9" fill="#f2a59c" />
-            </g>
-
-            <!-- cara y pancita -->
-            <g filter="url(#crayon)">
-              <path d="M78 205 C66 150 104 106 156 108 C202 110 222 158 220 212 C218 268 196 306 146 306 C102 306 84 262 78 205 Z"
-                    fill="#f7dcb4" filter="url(#grain)" />
-              <path d="M84 250 C96 290 118 306 146 306 C188 306 212 280 219 236"
-                    fill="none" stroke="#3b2414" stroke-width="4" stroke-linecap="round" />
-            </g>
-
-            <!-- cachetes -->
-            <ellipse cx="106" cy="196" rx="15" ry="9" fill="url(#blushG)" />
-            <ellipse cx="180" cy="200" rx="15" ry="9" fill="url(#blushG)" />
-
-            <!-- ojos -->
-            <g class="eyes">
-              <ellipse class="eye" cx="114" cy="172" rx="5.5" ry="6.5" fill="#1d120b" />
-              <ellipse class="eye" cx="168" cy="176" rx="5.5" ry="6.5" fill="#1d120b" />
-              <circle cx="116" cy="169.5" r="1.7" fill="#fff" />
-              <circle cx="170" cy="173.5" r="1.7" fill="#fff" />
-            </g>
-            <!-- nariz -->
-            <ellipse cx="140" cy="186" rx="9" ry="6.5" fill="#3b2414" filter="url(#crayon)" />
-
-            <!-- bracito que descansa -->
-            <path d="M188 246 C198 252 200 266 190 272" fill="none" stroke="#3b2414" stroke-width="4" stroke-linecap="round" filter="url(#crayon)" />
-
-            <!-- patitas -->
-            <g filter="url(#crayon)">
-              <ellipse cx="122" cy="309" rx="20" ry="10" fill="#7a4a27" />
-              <ellipse cx="176" cy="309" rx="20" ry="10" fill="#7a4a27" />
-            </g>
-          </g>
-
-          <!-- bracito del "poquito" -->
-          <g class="hog-arm" filter="url(#crayon)">
-            <path d="M118 262 C94 246 82 222 84 196 L104 194 C104 216 112 236 128 250 Z" fill="#f7dcb4" />
-            <path d="M118 262 C94 246 82 222 84 196" fill="none" stroke="#3b2414" stroke-width="4" stroke-linecap="round" />
-            <!-- índice -->
-            <path class="finger-top" d="M86 198 C76 186 66 172 56 158 C52 152 58 146 64 150 C76 160 92 176 102 190 Z"
-                  fill="#f7dcb4" stroke="#3b2414" stroke-width="3.6" stroke-linejoin="round" />
-            <!-- pulgar -->
-            <path class="finger-bottom" d="M84 204 C74 196 64 186 55 172 C51 166 57 160 63 165 C72 174 86 186 96 196 Z"
-                  fill="#f7dcb4" stroke="#3b2414" stroke-width="3.6" stroke-linejoin="round" />
-            <path d="M60 153 C63 152 66 154 67 157" stroke="#f2a59c" stroke-width="3" fill="none" stroke-linecap="round" />
-            <path d="M58 168 C61 167 64 169 65 172" stroke="#f2a59c" stroke-width="3" fill="none" stroke-linecap="round" />
-          </g>
-
-          <!-- el "poquito": aquí adentro vive la galaxia -->
-          <g id="dot">
-            <circle cx="49" cy="160" r="3.4" fill="#120d22" />
-            <image id="dotImg" x="45.6" y="156.6" width="6.8" height="6.8" clip-path="url(#dotClip)" preserveAspectRatio="xMidYMid slice" />
-          </g>
-
-          <!-- rayitas de énfasis -->
-          <g class="marks" stroke="#ef6a5f" stroke-width="4.2" stroke-linecap="round" filter="url(#crayon)">
-            <path d="M30 130 L37 143" />
-            <path d="M18 156 L32 159" />
-            <path d="M22 182 L34 175" />
-          </g>
-        </svg>
+        <div class="hog" id="hog">
+          <div class="layer layer--body">
+            <img class="part" id="imgBody" alt="" draggable="false" />
+            <svg class="overlay" viewBox="0 0 320 340" aria-hidden="true">
+              <g class="eye"><ellipse cx="125" cy="173" rx="6.6" ry="7.8" fill="#1d120b" /><circle cx="127.4" cy="170" r="2.2" fill="#fff" /><circle cx="122.6" cy="176.5" r="1" fill="#fff" opacity=".7" /></g>
+              <g class="eye"><ellipse cx="182" cy="179" rx="6.6" ry="7.8" fill="#1d120b" /><circle cx="184.4" cy="176" r="2.2" fill="#fff" /><circle cx="179.6" cy="182.5" r="1" fill="#fff" opacity=".7" /></g>
+            </svg>
+          </div>
+          <div class="layer layer--arm">
+            <img class="part" id="imgArm" alt="" draggable="false" />
+            <img class="part marks" id="imgMarks" alt="" draggable="false" />
+            <svg class="overlay" viewBox="0 0 320 340" aria-hidden="true">
+              <defs><clipPath id="dotClip"><circle id="dotClipC" /></clipPath></defs>
+              <g id="dot">
+                <circle id="dotCircle" fill="#120d22" />
+                <image id="dotImg" clip-path="url(#dotClip)" preserveAspectRatio="xMidYMid slice" />
+              </g>
+            </svg>
+          </div>
+        </div>
       </button>
 
       <button class="zoom-btn" id="zoomBtn" type="button">
@@ -156,6 +88,7 @@
     <span class="on" aria-hidden="true">🔊</span><span class="off" aria-hidden="true">🔇</span>
   </button>
 
+  <script src="hog.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
