@@ -24,7 +24,7 @@ body {
 
 body {
   font-family: "Quicksand", system-ui, sans-serif;
-  background: var(--paper);
+  background: #fdfdfd;
   color: var(--ink);
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
@@ -49,7 +49,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: var(--paper);
+  background: #fdfdfd;
 }
 
 .poquito {
@@ -88,8 +88,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .hog {
   position: relative;
   display: block;
-  width: min(88vw, calc(50vh * 1200 / 1294), 420px);
-  aspect-ratio: 1200 / 1294;
+  width: min(84vw, calc(66vh * 660 / 940), 460px);
+  aspect-ratio: 660 / 940;
   opacity: 0;
   transform: scale(.97);
   transition: opacity .8s ease, transform 1s var(--ease-spring);
@@ -102,7 +102,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
-  transform-origin: 18.1% 50.6%;
+  transform-origin: 16.5% 54.5%;
   animation: breathe-img 3.6s ease-in-out infinite;
 }
 @keyframes breathe-img {
@@ -113,9 +113,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* aro que invita a tocar entre los deditos */
 .tap-ring {
   position: absolute;
-  left: 18.1%;
-  top: 50.6%;
-  width: 11%;
+  left: 16.5%;
+  top: 54.5%;
+  width: 12%;
   aspect-ratio: 1;
   translate: -50% -50%;
   border-radius: 50%;
@@ -147,6 +147,27 @@ button { font: inherit; color: inherit; cursor: pointer; }
   pointer-events: none;
 }
 #zoom.on { display: block; }
+
+.paint-text {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: calc(clamp(56px, 9vh, 96px) + env(safe-area-inset-top));
+  margin: 0;
+  text-align: center;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-style: italic;
+  font-weight: 600;
+  font-size: clamp(2rem, 7.5vw, 3.4rem);
+  line-height: 1.1;
+  color: #ff8a7a;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, .85);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 1.2s ease, transform 1.2s ease;
+  pointer-events: none;
+}
+.paint-text.show { opacity: 1; transform: none; }
 
 .zoom-btn {
   display: inline-flex;
@@ -485,7 +506,7 @@ body.in-space .sound-toggle { background: var(--glass); border-color: var(--glas
 @media (max-height: 520px) and (orientation: landscape) {
   .stage { flex-direction: row; gap: 24px; }
   .stage { flex-direction: row; flex-wrap: wrap; }
-  .hog { width: calc(72vh * 1200 / 1294); }
+  .hog { width: calc(80vh * 660 / 940); }
   .u-text { top: 14px; }
   .u-hint, .u-count { bottom: 76px; }
   .u-actions { bottom: 14px; }
